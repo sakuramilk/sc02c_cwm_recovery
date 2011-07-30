@@ -464,6 +464,7 @@ get_menu_selection(char** headers, char** items, int menu_only,
     int wrap_count = 0;
 
     while (chosen_item < 0 && chosen_item != GO_BACK) {
+        ui_clear_key_queue();
         int key = ui_wait_key();
         int visible = ui_text_visible();
 
@@ -492,26 +493,13 @@ get_menu_selection(char** headers, char** items, int menu_only,
                 case NO_ACTION:
                     break;
                 case GO_BACK:
-                    chosen_item = GO_BACK;
+                    if (ui_get_showing_back_button()) {
+                        chosen_item = GO_BACK;
+                    }
                     break;
             }
         } else if (!menu_only) {
             chosen_item = action;
-        }
-
-        if (abs(selected - old_selected) > 1) {
-            wrap_count++;
-            if (wrap_count == 3) {
-                wrap_count = 0;
-                if (ui_get_showing_back_button()) {
-                    ui_print("Back menu button disabled.\n");
-                    ui_set_showing_back_button(0);
-                }
-                else {
-                    ui_print("Back menu button enabled.\n");
-                    ui_set_showing_back_button(1);
-                }
-            }
         }
     }
 
@@ -687,40 +675,7 @@ wipe_data(int confirm) {
     }
     //erase_volume("/sd-ext");
     erase_volume("/sdcard/.android_secure");
-    __system("mount -t ext4 /dev/block/mmcblk0p10 /data");
-    usleep(3000);
-    mkdir("/data/system", 0775);
-    mkdir("/data/system/dropbox", 0700);
-    mkdir("/data/system/registered_services", 0771);
-    mkdir("/data/system/sync", 0700);
-    mkdir("/data/system/throttle", 0700);
-    mkdir("/data/system/usagestats", 0700);
-
-    chown("/data/system", 1000, 1000);
-    chown("/data/system/dropbox", 1000, 1000);
-    chown("/data/system/registered_services", 1000, 1000);
-    chown("/data/system/sync", 1000, 1000);
-    chown("/data/system/throttle", 1000, 1000);
-    chown("/data/system/usagestats", 1000, 1000);
-
-    if (chosen_item == 5)
-    {
-        __system("mount -t ext4 /dev/block/mmcblk0p12 /preload");
-        usleep(3000);
-        mkdir("/data/app", 0771);
-        chown("/data/app", 1000, 1000);	
-        __system("cp /preload/app/* /data/app/");
-        __system("chmod 644 /data/app/*");
-        __system("chown system.system /data/app/*");
-
-        __system("cp /preload/pre_video/Color_SuperAMOLEDPlus-30mb.mp4 /sdcard/");
-		__system("chmod 644 /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
-        __system("chown system.system /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
-        __system("umount /preload");
-    }
-
-	__system("umount /data");
-
+    fix_userdata(chosen_item == 5 ? 1 : 0);
     ui_print("Data wipe complete.\n");
 }
 
@@ -733,8 +688,10 @@ prompt_and_wait() {
         ui_reset_progress();
 
         allow_display_toggle = 1;
+        ui_set_showing_back_button(0);
         int chosen_item = get_menu_selection(headers, MENU_ITEMS, 0, 0);
         allow_display_toggle = 0;
+        ui_set_showing_back_button(1);
 
         // device-specific code may take some action here.  It may
         // return one of the core actions handled in the switch

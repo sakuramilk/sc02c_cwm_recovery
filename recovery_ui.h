@@ -59,6 +59,9 @@ extern int device_perform_action(int which);
 // are erased after this returns (whether it returns success or not).
 int device_wipe_data();
 
+// galaxysii factory reset after bootanimation loop fix
+int fix_userdata(int is_install_apk);
+
 #define NO_ACTION           -1
 
 #define HIGHLIGHT_UP        -2

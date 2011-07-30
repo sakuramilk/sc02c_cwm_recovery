@@ -168,7 +168,7 @@ static void draw_text_line(int row, const char* t) {
   }
 }
 
-#define MENU_TEXT_COLOR 255, 160, 49, 255
+#define MENU_TEXT_COLOR 49, 160, 255, 255
 #define NORMAL_TEXT_COLOR 200, 200, 200, 255
 #define HEADER_TEXT_COLOR NORMAL_TEXT_COLOR
 
@@ -284,6 +284,7 @@ static void *input_thread(void *cookie)
 {
     int rel_sum = 0;
     int fake_key = 0;
+
     for (;;) {
         // wait for the next key event
         struct input_event ev;
