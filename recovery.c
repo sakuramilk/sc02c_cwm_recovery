@@ -647,6 +647,7 @@ sdcard_directory(const char* path) {
 
 static void
 wipe_data(int confirm) {
+    int chosen_item = 0;
     if (confirm) {
         static char** title_headers = NULL;
 
@@ -663,7 +664,7 @@ wipe_data(int confirm) {
                           " No",
                           " No",
                           " No",
-                          " No",
+                          " Yes -- delete all user data, and repair",	// [5]
                           " No",
                           " Yes -- delete all user data",   // [7]
                           " No",
@@ -671,8 +672,8 @@ wipe_data(int confirm) {
                           " No",
                           NULL };
 
-        int chosen_item = get_menu_selection(title_headers, items, 1, 0);
-        if (chosen_item != 7) {
+        chosen_item = get_menu_selection(title_headers, items, 1, 0);
+        if (chosen_item != 5 && chosen_item != 7) {
             return;
         }
     }
@@ -701,6 +702,23 @@ wipe_data(int confirm) {
     chown("/data/system/sync", 1000, 1000);
     chown("/data/system/throttle", 1000, 1000);
     chown("/data/system/usagestats", 1000, 1000);
+
+    if (chosen_item == 5)
+    {
+        __system("mount -t ext4 /dev/block/mmcblk0p12 /preload");
+        usleep(3000);
+        mkdir("/data/app", 0771);
+        chown("/data/app", 1000, 1000);	
+        __system("cp /preload/app/* /data/app/");
+        __system("chmod 644 /data/app/*");
+        __system("chown system.system /data/app/*");
+
+        __system("cp /preload/pre_video/Color_SuperAMOLEDPlus-30mb.mp4 /sdcard/");
+		__system("chmod 644 /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
+        __system("chown system.system /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
+        __system("umount /preload");
+    }
+
 	__system("umount /data");
 
     ui_print("Data wipe complete.\n");
