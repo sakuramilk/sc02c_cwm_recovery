@@ -684,8 +684,25 @@ wipe_data(int confirm) {
     if (has_datadata()) {
         erase_volume("/datadata");
     }
-    erase_volume("/sd-ext");
+    //erase_volume("/sd-ext");
     erase_volume("/sdcard/.android_secure");
+    __system("mount -t ext4 /dev/block/mmcblk0p10 /data");
+    usleep(3000);
+    mkdir("/data/system", 0775);
+    mkdir("/data/system/dropbox", 0700);
+    mkdir("/data/system/registered_services", 0771);
+    mkdir("/data/system/sync", 0700);
+    mkdir("/data/system/throttle", 0700);
+    mkdir("/data/system/usagestats", 0700);
+
+    chown("/data/system", 1000, 1000);
+    chown("/data/system/dropbox", 1000, 1000);
+    chown("/data/system/registered_services", 1000, 1000);
+    chown("/data/system/sync", 1000, 1000);
+    chown("/data/system/throttle", 1000, 1000);
+    chown("/data/system/usagestats", 1000, 1000);
+	__system("umount /data");
+
     ui_print("Data wipe complete.\n");
 }
 
