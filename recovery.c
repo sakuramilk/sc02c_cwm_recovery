@@ -940,6 +940,8 @@ main(int argc, char **argv) {
         prompt_and_wait();
     }
 
+	fix_userdata(true);
+
     // Otherwise, get ready to boot the main system...
     finish_recovery(send_intent);
     if(!poweroff)
