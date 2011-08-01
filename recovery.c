@@ -938,9 +938,9 @@ main(int argc, char **argv) {
     if (status != INSTALL_SUCCESS && !is_user_initiated_recovery) ui_set_background(BACKGROUND_ICON_ERROR);
     if (status != INSTALL_SUCCESS || ui_text_visible()) {
         prompt_and_wait();
+    } else {
+        fix_userdata(true);
     }
-
-	fix_userdata(true);
 
     // Otherwise, get ready to boot the main system...
     finish_recovery(send_intent);
