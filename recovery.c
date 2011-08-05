@@ -675,6 +675,7 @@ wipe_data(int confirm) {
     }
     //erase_volume("/sd-ext");
     erase_volume("/sdcard/.android_secure");
+    ui_print("\n-- fix data partision...\n");
     fix_userdata(chosen_item == 5 ? 1 : 0);
     ui_print("Data wipe complete.\n");
 }
@@ -832,6 +833,9 @@ main(int argc, char **argv) {
         }
     }
 
+    // update package force null
+    update_package = NULL;
+
     LOGI("device_recovery_start()\n");
     device_recovery_start();
 
@@ -897,13 +901,20 @@ main(int argc, char **argv) {
                 ui_print("Successfully updated Encrypted FS.\n");
                 status = INSTALL_SUCCESS;
             }
+            LOGI("call fix_userdata(true)");
+            fix_userdata(true);
         }
     } else if (update_package != NULL) {
         status = install_package(update_package);
         if (status != INSTALL_SUCCESS) ui_print("Installation aborted.\n");
     } else if (wipe_data) {
         if (device_wipe_data()) status = INSTALL_ERROR;
-        if (erase_volume("/data")) status = INSTALL_ERROR;
+        if (erase_volume("/data")) {
+            status = INSTALL_ERROR;
+        } else {
+            LOGI("call fix_userdata(true)");
+            fix_userdata(true);
+        }
         if (wipe_cache && erase_volume("/cache")) status = INSTALL_ERROR;
         if (status != INSTALL_SUCCESS) ui_print("Data wipe failed.\n");
     } else if (wipe_cache) {
@@ -938,8 +949,6 @@ main(int argc, char **argv) {
     if (status != INSTALL_SUCCESS && !is_user_initiated_recovery) ui_set_background(BACKGROUND_ICON_ERROR);
     if (status != INSTALL_SUCCESS || ui_text_visible()) {
         prompt_and_wait();
-    } else {
-        fix_userdata(true);
     }
 
     // Otherwise, get ready to boot the main system...

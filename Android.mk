@@ -29,10 +29,10 @@ LOCAL_FORCE_STATIC_EXECUTABLE := true
 ifdef I_AM_KOUSH
 RECOVERY_NAME := ClockworkMod Recovery
 else
-RECOVERY_NAME := CWM-based Recovery
+RECOVERY_NAME := CWM-based Galaxy S2 Recovery
 endif
 
-RECOVERY_VERSION := $(RECOVERY_NAME) v4.0.1.4 for Galaxy S2 r4
+RECOVERY_VERSION := $(RECOVERY_NAME) v4.0.1.4 r5
 
 BOARD_CUSTOM_RECOVERY_KEYMAPPING := galaxysii_recovery_ui.c
 

@@ -41,9 +41,11 @@
 
 #include "flashutils/flashutils.h"
 #include <libgen.h>
+#include <locale.h>
 
 void nandroid_generate_timestamp_path(const char* backup_path)
 {
+    setlocale(LC_ALL, "JPN");
     time_t t = time(NULL);
     struct tm *tmp = localtime(&t);
     if (tmp == NULL)
@@ -163,8 +165,8 @@ int nandroid_backup_partition_extended(const char* backup_path, const char* moun
     char* name = basename(mount_point);
 
     struct stat file_info;
-    int callback = stat("/sdcard/clockworkmod/.hidenandroidprogress", &file_info) == 0;
-    
+    int callback = stat("/sdcard/clockworkmod/.hidenandroidprogress", &file_info) != 0;
+
     ui_print("Backing up %s...\n", name);
     if (0 != (ret = ensure_path_mounted(mount_point) != 0)) {
         ui_print("Can't mount %s!\n", mount_point);
@@ -385,7 +387,7 @@ int nandroid_restore_partition_extended(const char* backup_path, const char* mou
 
     ensure_directory(mount_point);
 
-    int callback = stat("/sdcard/clockworkmod/.hidenandroidprogress", &file_info) == 0;
+    int callback = stat("/sdcard/clockworkmod/.hidenandroidprogress", &file_info) != 0;
 
     ui_print("Restoring %s...\n", name);
     /*
