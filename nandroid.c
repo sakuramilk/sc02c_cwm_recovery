@@ -41,12 +41,10 @@
 
 #include "flashutils/flashutils.h"
 #include <libgen.h>
-#include <locale.h>
 
 void nandroid_generate_timestamp_path(const char* backup_path)
 {
-    setlocale(LC_ALL, "JPN");
-    time_t t = time(NULL);
+    time_t t = time(NULL) + (60 * 60 * 9); // add 9 hours
     struct tm *tmp = localtime(&t);
     if (tmp == NULL)
     {
