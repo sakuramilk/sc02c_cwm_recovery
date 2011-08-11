@@ -833,7 +833,11 @@ void show_nandroid_menu()
         case 0:
             {
                 char backup_path[PATH_MAX];
+#ifdef RECOVERY_TZ_JPN
+                time_t t = time(NULL) + (60 * 60 * 9); // add 9 hours
+#else
                 time_t t = time(NULL);
+#endif
                 struct tm *tmp = localtime(&t);
                 if (tmp == NULL)
                 {
@@ -1136,7 +1140,7 @@ void process_volumes() {
     }
     
     char backup_path[PATH_MAX];
-    time_t t = time(NULL);
+    //time_t t = time(NULL);
     char backup_name[PATH_MAX];
     struct timeval tp;
     gettimeofday(&tp, NULL);

@@ -790,7 +790,11 @@ main(int argc, char **argv) {
     __system("/sbin/postrecoveryboot.sh");
 
     int is_user_initiated_recovery = 0;
+#ifdef RECOVERY_TZ_JPN
+    time_t start = time(NULL) + (60 * 60 * 9); // add 9 hours
+#else
     time_t start = time(NULL);
+#endif
 
     // If these fail, there's not really anywhere to complain...
     freopen(TEMPORARY_LOG_FILE, "a", stdout); setbuf(stdout, NULL);

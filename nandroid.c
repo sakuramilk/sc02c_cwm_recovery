@@ -44,7 +44,11 @@
 
 void nandroid_generate_timestamp_path(const char* backup_path)
 {
+#ifdef RECOVERY_TZ_JPN
     time_t t = time(NULL) + (60 * 60 * 9); // add 9 hours
+#else
+    time_t t = time(NULL);
+#endif
     struct tm *tmp = localtime(&t);
     if (tmp == NULL)
     {
