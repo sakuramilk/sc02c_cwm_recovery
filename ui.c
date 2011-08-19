@@ -284,7 +284,6 @@ static void *input_thread(void *cookie)
 {
     int rel_sum = 0;
     int fake_key = 0;
-
     for (;;) {
         // wait for the next key event
         struct input_event ev;

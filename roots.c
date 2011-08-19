@@ -290,9 +290,11 @@ int format_volume(const char* volume) {
         if (strstr(volume, "/sdcard") == volume && is_data_media()) {
             return format_unknown_device(NULL, volume, NULL);
         }
+#ifdef RECOVERY_HAVE_SD_EXT
         // silent failure for sd-ext
         if (strcmp(volume, "/sd-ext") == 0)
             return -1;
+#endif
         LOGE("unknown volume \"%s\"\n", volume);
         return -1;
     }

@@ -168,7 +168,7 @@ int nandroid_backup_partition_extended(const char* backup_path, const char* moun
 
     struct stat file_info;
     int callback = stat("/sdcard/clockworkmod/.hidenandroidprogress", &file_info) != 0;
-
+    
     ui_print("Backing up %s...\n", name);
     if (0 != (ret = ensure_path_mounted(mount_point) != 0)) {
         ui_print("Can't mount %s!\n", mount_point);
@@ -283,7 +283,7 @@ int nandroid_backup(const char* backup_path)
 
     if (0 != (ret = nandroid_backup_partition_extended(backup_path, "/cache", 0)))
         return ret;
-
+#ifdef RECOVERY_HAVE_SD_EXT
     vol = volume_for_path("/sd-ext");
     if (vol == NULL || 0 != stat(vol->device, &s))
     {
@@ -296,7 +296,7 @@ int nandroid_backup(const char* backup_path)
         else if (0 != (ret = nandroid_backup_partition(backup_path, "/sd-ext")))
             return ret;
     }
-
+#endif
     ui_print("Generating md5 sum...\n");
     sprintf(tmp, "nandroid-md5.sh %s", backup_path);
     if (0 != (ret = __system(tmp))) {
@@ -520,10 +520,10 @@ int nandroid_restore(const char* backup_path, int restore_boot, int restore_syst
 
     if (restore_cache && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/cache", 0)))
         return ret;
-
+#ifdef RECOVERY_HAVE_SD_EXT
     if (restore_sdext && 0 != (ret = nandroid_restore_partition(backup_path, "/sd-ext")))
         return ret;
-
+#endif
     sync();
     ui_set_background(BACKGROUND_ICON_NONE);
     ui_reset_progress();

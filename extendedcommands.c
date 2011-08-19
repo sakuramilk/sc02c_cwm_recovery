@@ -427,6 +427,7 @@ int format_unknown_device(const char *device, const char* path, const char *fs_t
         return erase_raw_partition(fs_type, device);
 
     // if this is SDEXT:, don't worry about it if it does not exist.
+#ifdef RECOVERY_HAVE_SD_EXT
     if (0 == strcmp(path, "/sd-ext"))
     {
         struct stat st;
@@ -437,6 +438,7 @@ int format_unknown_device(const char *device, const char* path, const char *fs_t
             return 0;
         }
     }
+#endif
 
     if (NULL != fs_type) {
         if (strcmp("ext3", fs_type) == 0) {
@@ -771,7 +773,9 @@ void show_nandroid_advanced_restore_menu()
                             "Restore system",
                             "Restore data",
                             "Restore cache",
+#ifdef RECOVERY_HAVE_SD_EXT
                             "Restore sd-ext",
+#endif
                             "Restore wimax",
                             NULL
     };
@@ -803,11 +807,15 @@ void show_nandroid_advanced_restore_menu()
             if (confirm_selection(confirm_restore, "Yes - Restore cache"))
                 nandroid_restore(file, 0, 0, 0, 1, 0, 0);
             break;
+#ifdef RECOVERY_HAVE_SD_EXT
         case 4:
             if (confirm_selection(confirm_restore, "Yes - Restore sd-ext"))
                 nandroid_restore(file, 0, 0, 0, 0, 1, 0);
             break;
         case 5:
+#else
+		case 4:
+#endif
             if (confirm_selection(confirm_restore, "Yes - Restore wimax"))
                 nandroid_restore(file, 0, 0, 0, 0, 0, 1);
             break;
@@ -908,12 +916,16 @@ void show_advanced_menu()
             {
                 if (0 != ensure_path_mounted("/data"))
                     break;
+#ifdef RECOVERY_HAVE_SD_EXT
                 ensure_path_mounted("/sd-ext");
+#endif
                 ensure_path_mounted("/cache");
                 if (confirm_selection( "Confirm wipe?", "Yes - Wipe Dalvik Cache")) {
                     __system("rm -r /data/dalvik-cache");
                     __system("rm -r /cache/dalvik-cache");
+#ifdef RECOVERY_HAVE_SD_EXT
                     __system("rm -r /sd-ext/dalvik-cache");
+#endif
                 }
                 ensure_path_unmounted("/data");
                 ui_print("Dalvik Cache wiped.\n");
@@ -1086,7 +1098,9 @@ void create_fstab()
     }
     write_fstab_root("/system", file);
     write_fstab_root("/sdcard", file);
+#ifdef RECOVERY_HAVE_SD_EXT
     write_fstab_root("/sd-ext", file);
+#endif
     fclose(file);
     LOGI("Completed outputting fstab.\n");
 }

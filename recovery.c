@@ -673,7 +673,9 @@ wipe_data(int confirm) {
     if (has_datadata()) {
         erase_volume("/datadata");
     }
-    //erase_volume("/sd-ext");
+#ifdef RECOVERY_HAVE_SD_EXT
+    erase_volume("/sd-ext");
+#endif
     erase_volume("/sdcard/.android_secure");
     ui_print("\n-- fix data partision...\n");
     fix_userdata(chosen_item == 5 ? 1 : 0);
@@ -780,6 +782,13 @@ main(int argc, char **argv) {
             return nandroid_main(argc, argv);
         if (strstr(argv[0], "reboot"))
             return reboot_main(argc, argv);
+#ifdef BOARD_RECOVERY_HANDLES_MOUNT
+        if (strstr(argv[0], "mount") && argc == 2 && !strstr(argv[0], "umount"))
+        {
+            load_volume_table();
+            return ensure_path_mounted(argv[1]);
+        }
+#endif
         if (strstr(argv[0], "poweroff")){
             return reboot_main(argc, argv);
         }
