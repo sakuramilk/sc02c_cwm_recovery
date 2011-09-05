@@ -32,7 +32,7 @@ else
 RECOVERY_NAME := CWM-based Galaxy S2 Recovery
 endif
 
-RECOVERY_VERSION := $(RECOVERY_NAME) v4.0.1.5 r1
+RECOVERY_VERSION := $(RECOVERY_NAME) v4.0.1.5 r2
 
 BOARD_CUSTOM_RECOVERY_KEYMAPPING := galaxysii_recovery_ui.c
 
