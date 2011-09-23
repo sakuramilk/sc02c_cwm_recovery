@@ -19,8 +19,12 @@ LOCAL_SRC_FILES := \
     extendedcommands.c \
     nandroid.c \
     ../../system/core/toolbox/reboot.c \
+    firmware.c \
     edifyscripting.c \
     setprop.c
+
+ADDITIONAL_RECOVERY_FILES := $(shell echo $$ADDITIONAL_RECOVERY_FILES)
+LOCAL_SRC_FILES += $(ADDITIONAL_RECOVERY_FILES)
 
 LOCAL_MODULE := recovery
 
@@ -28,11 +32,12 @@ LOCAL_FORCE_STATIC_EXECUTABLE := true
 
 ifdef I_AM_KOUSH
 RECOVERY_NAME := ClockworkMod Recovery
+LOCAL_CFLAGS += -DI_AM_KOUSH
 else
 RECOVERY_NAME := CWM-based Galaxy S2 Recovery
 endif
 
-RECOVERY_VERSION := $(RECOVERY_NAME) v4.0.1.5 r2
+RECOVERY_VERSION := $(RECOVERY_NAME) v5.0.2.3 r1
 
 BOARD_CUSTOM_RECOVERY_KEYMAPPING := galaxysii_recovery_ui.c
 
