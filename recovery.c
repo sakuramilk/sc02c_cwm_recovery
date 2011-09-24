@@ -464,7 +464,7 @@ get_menu_selection(char** headers, char** items, int menu_only,
     int wrap_count = 0;
 
     while (chosen_item < 0 && chosen_item != GO_BACK) {
-        usleep(30 * 1000); // wait 30msec
+        usleep(40 * 1000); // wait 40msec
         ui_clear_key_queue();
         int key = ui_wait_key();
         int visible = ui_text_visible();
@@ -965,8 +965,10 @@ main(int argc, char **argv) {
         prompt_and_wait();
     }
 
+#if 0 // galaxys2 don't support this feature
     // If there is a radio image pending, reboot now to install it.
     maybe_install_firmware_update(send_intent);
+#endif
 
     // Otherwise, get ready to boot the main system...
     finish_recovery(send_intent);
