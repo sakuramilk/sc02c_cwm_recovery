@@ -40,6 +40,7 @@
 #include "flashutils/flashutils.h"
 #include "edify/expr.h"
 #include <libgen.h>
+#include "mtdutils/mtdutils.h"
 
 
 int signature_check_enabled = 1;
@@ -77,15 +78,17 @@ int install_zip(const char* packagefilepath)
     return 0;
 }
 
-char* INSTALL_MENU_ITEMS[] = {  "choose zip from sdcard",
+char* INSTALL_MENU_ITEMS[] = {  "choose zip from internal sdcard",
                                 "apply /sdcard/update.zip",
                                 "toggle signature verification",
                                 "toggle script asserts",
+                                "choose zip from external sdcard",
                                 NULL };
 #define ITEM_CHOOSE_ZIP       0
 #define ITEM_APPLY_SDCARD     1
 #define ITEM_SIG_CHECK        2
 #define ITEM_ASSERTS          3
+#define ITEM_CHOOSE_ZIP_INT   4
 
 void show_install_update_menu()
 {
@@ -93,6 +96,10 @@ void show_install_update_menu()
                                 "",
                                 NULL
     };
+    
+    if (volume_for_path("/emmc") == NULL)
+        INSTALL_MENU_ITEMS[ITEM_CHOOSE_ZIP_INT] = NULL;
+    
     for (;;)
     {
         int chosen_item = get_menu_selection(headers, INSTALL_MENU_ITEMS, 0, 0);
@@ -111,7 +118,10 @@ void show_install_update_menu()
                 break;
             }
             case ITEM_CHOOSE_ZIP:
-                show_choose_zip_menu();
+                show_choose_zip_menu("/sdcard/");
+                break;
+            case ITEM_CHOOSE_ZIP_INT:
+                show_choose_zip_menu("/emmc/");
                 break;
             default:
                 return;
@@ -301,10 +311,10 @@ char* choose_file_menu(const char* directory, const char* fileExtensionOrDirecto
     return return_value;
 }
 
-void show_choose_zip_menu()
+void show_choose_zip_menu(const char *mount_point)
 {
-    if (ensure_path_mounted("/sdcard") != 0) {
-        LOGE ("Can't mount /sdcard\n");
+    if (ensure_path_mounted(mount_point) != 0) {
+        LOGE ("Can't mount %s\n", mount_point);
         return;
     }
 
@@ -313,7 +323,7 @@ void show_choose_zip_menu()
                                 NULL
     };
 
-    char* file = choose_file_menu("/sdcard/", ".zip", headers);
+    char* file = choose_file_menu(mount_point, ".zip", headers);
     if (file == NULL)
         return;
     static char* confirm_install  = "Confirm install?";
@@ -926,9 +936,9 @@ void show_advanced_menu()
 #ifdef RECOVERY_HAVE_SD_EXT
                     __system("rm -r /sd-ext/dalvik-cache");
 #endif
+                    ui_print("Dalvik Cache wiped.\n");
                 }
                 ensure_path_unmounted("/data");
-                ui_print("Dalvik Cache wiped.\n");
                 break;
             }
             case 2:
