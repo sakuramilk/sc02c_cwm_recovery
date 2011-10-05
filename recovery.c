@@ -847,9 +847,6 @@ main(int argc, char **argv) {
         }
     }
 
-    // update package force null
-    update_package = NULL;
-
     LOGI("device_recovery_start()\n");
     device_recovery_start();
 
@@ -877,6 +874,12 @@ main(int argc, char **argv) {
 
     property_list(print_property, NULL);
     printf("\n");
+
+	/** force umount /system
+     * uncertainty in timing of umount reocvery.rc,
+     * run the umount when the recovery initialize completed.
+     */
+    ensure_path_unmounted("/system");
 
     int status = INSTALL_SUCCESS;
     

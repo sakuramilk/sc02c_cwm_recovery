@@ -384,9 +384,6 @@ install_package(const char *path)
         return INSTALL_CORRUPT;
     }
 
-    /* Force unmount system */
-    ensure_path_unmounted("/system");
-
     /* Verify and install the contents of the package.
      */
     ui_print("Installing update...\n");
