@@ -847,6 +847,9 @@ main(int argc, char **argv) {
         }
     }
 
+    // update package force null
+    update_package = NULL;
+
     LOGI("device_recovery_start()\n");
     device_recovery_start();
 
