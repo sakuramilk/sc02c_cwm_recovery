@@ -42,10 +42,28 @@
 #include <libgen.h>
 #include "mtdutils/mtdutils.h"
 
+#define INTERNAL_SDCARD_PATH     "/sdcard"
+#define EXTERNAL_SDCARD_PATH     "/emmc"
+
+enum {
+    TARGET_INTERNAL_SDCARD = 0,
+    TARGET_EXTERNAL_SDCARD = 1,
+};
+int target_sdcard = TARGET_INTERNAL_SDCARD;
 
 int signature_check_enabled = 1;
 int script_assert_enabled = 1;
 static const char *SDCARD_UPDATE_FILE = "/sdcard/update.zip";
+
+void toggle_targer_sdcard()
+{
+    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+        target_sdcard = TARGET_EXTERNAL_SDCARD;
+    } else {
+        target_sdcard = TARGET_INTERNAL_SDCARD;
+    }
+    ui_print("Target sdcard: %s\n", target_sdcard == TARGET_INTERNAL_SDCARD ? "Internal sdcard" : "External sdcard");
+}
 
 void
 toggle_signature_check()
@@ -335,8 +353,17 @@ void show_choose_zip_menu(const char *mount_point)
 
 void show_nandroid_restore_menu()
 {
-    if (ensure_path_mounted("/sdcard") != 0) {
-        LOGE ("Can't mount /sdcard\n");
+    const char* sdcard_path;
+    char* backup_path[PATH_MAX];
+
+    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+        sdcard_path = INTERNAL_SDCARD_PATH;
+    } else {
+        sdcard_path = EXTERNAL_SDCARD_PATH;
+    }
+
+    if (ensure_path_mounted(sdcard_path) != 0) {
+        LOGE ("Can't mount %s\n", sdcard_path);
         return;
     }
 
@@ -345,7 +372,8 @@ void show_nandroid_restore_menu()
                                 NULL
     };
 
-    char* file = choose_file_menu("/sdcard/clockworkmod/backup/", NULL, headers);
+    sprintf(backup_path, "%s/clockworkmod/backup/", sdcard_path);
+    char* file = choose_file_menu(backup_path, NULL, headers);
     if (file == NULL)
         return;
 
@@ -717,8 +745,17 @@ void show_partition_menu()
 
 void show_nandroid_advanced_restore_menu()
 {
-    if (ensure_path_mounted("/sdcard") != 0) {
-        LOGE ("Can't mount /sdcard\n");
+    const char* sdcard_path;
+    char* backup_path[PATH_MAX];
+
+    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+        sdcard_path = INTERNAL_SDCARD_PATH;
+    } else {
+        sdcard_path = EXTERNAL_SDCARD_PATH;
+    }
+
+    if (ensure_path_mounted(sdcard_path) != 0) {
+        LOGE ("Can't mount %s\n", sdcard_path);
         return;
     }
 
@@ -731,7 +768,8 @@ void show_nandroid_advanced_restore_menu()
                                 NULL
     };
 
-    char* file = choose_file_menu("/sdcard/clockworkmod/backup/", NULL, advancedheaders);
+    sprintf(backup_path, "%s/clockworkmod/backup/", sdcard_path);
+    char* file = choose_file_menu(backup_path, NULL, advancedheaders);
     if (file == NULL)
         return;
 
@@ -803,6 +841,7 @@ void show_nandroid_menu()
     static char* list[] = { "Backup",
                             "Restore",
                             "Advanced Restore",
+                            "toggle target sdcard",
                             NULL
     };
 
@@ -822,11 +861,19 @@ void show_nandroid_menu()
                 {
                     struct timeval tp;
                     gettimeofday(&tp, NULL);
-                    sprintf(backup_path, "/sdcard/clockworkmod/backup/%d", tp.tv_sec);
+                    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+                        sprintf(backup_path, INTERNAL_SDCARD_PATH "/clockworkmod/backup/%d", tp.tv_sec);
+                    } else {
+                        sprintf(backup_path, EXTERNAL_SDCARD_PATH "/clockworkmod/backup/%d", tp.tv_sec);
+                    }
                 }
                 else
                 {
-                    strftime(backup_path, sizeof(backup_path), "/sdcard/clockworkmod/backup/%F.%H.%M.%S", tmp);
+                    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+                        strftime(backup_path, sizeof(backup_path), INTERNAL_SDCARD_PATH "/clockworkmod/backup/%F.%H.%M.%S", tmp);
+                    } else {
+                        strftime(backup_path, sizeof(backup_path), EXTERNAL_SDCARD_PATH "/clockworkmod/backup/%F.%H.%M.%S", tmp);
+                    }
                 }
                 nandroid_backup(backup_path);
             }
@@ -836,6 +883,9 @@ void show_nandroid_menu()
             break;
         case 2:
             show_nandroid_advanced_restore_menu();
+            break;
+        case 3:
+            toggle_targer_sdcard();
             break;
     }
 }
@@ -1130,7 +1180,11 @@ void process_volumes() {
     struct timeval tp;
     gettimeofday(&tp, NULL);
     sprintf(backup_name, "before-ext4-convert-%d", tp.tv_sec);
-    sprintf(backup_path, "/sdcard/clockworkmod/backup/%s", backup_name);
+    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+        sprintf(backup_path, INTERNAL_SDCARD_PATH "/clockworkmod/backup/%s", backup_name);
+    } else {
+        sprintf(backup_path, EXTERNAL_SDCARD_PATH "/clockworkmod/backup/%s", backup_name);
+    }
 
     ui_set_show_text(1);
     ui_print("Filesystems need to be converted to ext4.\n");
