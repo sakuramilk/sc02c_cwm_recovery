@@ -838,56 +838,72 @@ void show_nandroid_menu()
                                 NULL
     };
 
-    static char* list[] = { "Backup",
-                            "Restore",
-                            "Advanced Restore",
-                            "toggle target sdcard",
-                            NULL
+    static char* list_internal[] = { "Backup to internal sdcard",
+                                      "Restore from internal sdcard",
+                                      "Advanced Restore from internal sdcard",
+                                      "toggle target sdcard",
+                                      NULL
+    };
+    static char* list_external[] = { "Backup to external sdcard",
+                                      "Restore from external sdcard",
+                                      "Advanced Restore from external sdcard",
+                                      "toggle target sdcard",
+                                      NULL
     };
 
-    int chosen_item = get_menu_selection(headers, list, 0, 0);
-    switch (chosen_item)
-    {
-        case 0:
-            {
-                char backup_path[PATH_MAX];
+	for (;;) {
+		char* list;
+		if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+			list = list_internal;
+		} else {
+			list = list_external;
+		}
+		int chosen_item = get_menu_selection(headers, list, 0, 0);
+		switch (chosen_item)
+		{
+		    case 0:
+		        {
+		            char backup_path[PATH_MAX];
 #ifdef RECOVERY_TZ_JPN
-                time_t t = time(NULL) + (60 * 60 * 9); // add 9 hours
+		            time_t t = time(NULL) + (60 * 60 * 9); // add 9 hours
 #else
-                time_t t = time(NULL);
+		            time_t t = time(NULL);
 #endif
-                struct tm *tmp = localtime(&t);
-                if (tmp == NULL)
-                {
-                    struct timeval tp;
-                    gettimeofday(&tp, NULL);
-                    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
-                        sprintf(backup_path, INTERNAL_SDCARD_PATH "/clockworkmod/backup/%d", tp.tv_sec);
-                    } else {
-                        sprintf(backup_path, EXTERNAL_SDCARD_PATH "/clockworkmod/backup/%d", tp.tv_sec);
-                    }
-                }
-                else
-                {
-                    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
-                        strftime(backup_path, sizeof(backup_path), INTERNAL_SDCARD_PATH "/clockworkmod/backup/%F.%H.%M.%S", tmp);
-                    } else {
-                        strftime(backup_path, sizeof(backup_path), EXTERNAL_SDCARD_PATH "/clockworkmod/backup/%F.%H.%M.%S", tmp);
-                    }
-                }
-                nandroid_backup(backup_path);
-            }
-            break;
-        case 1:
-            show_nandroid_restore_menu();
-            break;
-        case 2:
-            show_nandroid_advanced_restore_menu();
-            break;
-        case 3:
-            toggle_targer_sdcard();
-            break;
-    }
+		            struct tm *tmp = localtime(&t);
+		            if (tmp == NULL)
+		            {
+		                struct timeval tp;
+		                gettimeofday(&tp, NULL);
+		                if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+		                    sprintf(backup_path, INTERNAL_SDCARD_PATH "/clockworkmod/backup/%d", tp.tv_sec);
+		                } else {
+		                    sprintf(backup_path, EXTERNAL_SDCARD_PATH "/clockworkmod/backup/%d", tp.tv_sec);
+		                }
+		            }
+		            else
+		            {
+		                if (target_sdcard == TARGET_INTERNAL_SDCARD) {
+		                    strftime(backup_path, sizeof(backup_path), INTERNAL_SDCARD_PATH "/clockworkmod/backup/%F.%H.%M.%S", tmp);
+		                } else {
+		                    strftime(backup_path, sizeof(backup_path), EXTERNAL_SDCARD_PATH "/clockworkmod/backup/%F.%H.%M.%S", tmp);
+		                }
+		            }
+		            nandroid_backup(backup_path);
+		        }
+		        break;
+		    case 1:
+		        show_nandroid_restore_menu();
+		        break;
+		    case 2:
+		        show_nandroid_advanced_restore_menu();
+		        break;
+		    case 3:
+		        toggle_targer_sdcard();
+		        break;
+			default:
+				return;
+		}
+	}
 }
 
 void wipe_battery_stats()
