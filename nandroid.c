@@ -235,9 +235,18 @@ int nandroid_backup(const char* backup_path)
     if (ensure_path_mounted("/sdcard") != 0)
         return print_and_error("Can't mount /sdcard\n");
     
+    const char* sdcard_path;
+    if (strncmp(backup_path, "/emmc", strlen("/emmc")) == 0) {
+        sdcard_path = "/emmc";
+        if (ensure_path_mounted("/emmc") != 0)
+            return print_and_error("Can't mount /emmc\n");
+    } else {
+        sdcard_path = "/sdcard";
+    }
+
     int ret;
     struct statfs s;
-    if (0 != (ret = statfs("/sdcard", &s)))
+    if (0 != (ret = statfs(sdcard_path, &s)))
         return print_and_error("Unable to stat /sdcard\n");
     uint64_t bavail = s.f_bavail;
     uint64_t bsize = s.f_bsize;
@@ -520,6 +529,11 @@ int nandroid_restore(const char* backup_path, int restore_boot, int restore_syst
     if (ensure_path_mounted("/sdcard") != 0)
         return print_and_error("Can't mount /sdcard\n");
     
+    if (strncmp(backup_path, "/emmc", strlen("/emmc")) == 0) {
+        if (ensure_path_mounted("/emmc") != 0)
+            return print_and_error("Can't mount /emmc\n");
+    }
+
     char tmp[PATH_MAX];
 
     ui_print("Checking MD5 sums...\n");
