@@ -89,7 +89,7 @@ static const char *SIDELOAD_TEMP_DIR = "/tmp/sideload";
  * 3. main system reboots into recovery
  * 4. get_args() writes BCB with "boot-recovery" and "--wipe_data"
  *    -- after this, rebooting will restart the erase --
- * 5. erase_volume() reformats /data
+ * 5. erase_volume() reformats /xdata
  * 6. erase_volume() reformats /cache
  * 7. finish_recovery() erases BCB
  *    -- after this, rebooting will restart the main system --
@@ -131,12 +131,12 @@ static const char *SIDELOAD_TEMP_DIR = "/tmp/sideload";
  * 4. get_args() writes BCB with "boot-recovery" and
  *    "--set_encrypted_filesystems=on|off"
  *    -- after this, rebooting will restart the transition --
- * 5. read_encrypted_fs_info() retrieves encrypted file systems settings from /data
+ * 5. read_encrypted_fs_info() retrieves encrypted file systems settings from /xdata
  *    Settings include: property to specify the Encrypted FS istatus and
  *    FS encryption key if enabled (not yet implemented)
- * 6. erase_volume() reformats /data
+ * 6. erase_volume() reformats /xdata
  * 7. erase_volume() reformats /cache
- * 8. restore_encrypted_fs_info() writes required encrypted file systems settings to /data
+ * 8. restore_encrypted_fs_info() writes required encrypted file systems settings to /xdata
  *    Settings include: property to specify the Encrypted FS status and
  *    FS encryption key if enabled (not yet implemented)
  * 9. finish_recovery() erases BCB
@@ -635,6 +635,51 @@ sdcard_directory(const char* path) {
 }
 
 static void
+factory_reset(int confirm) {
+    int chosen_item = 0;
+    if (confirm) {
+        static char** title_headers = NULL;
+
+        if (title_headers == NULL) {
+            char* headers[] = { "Confirm wipe of all user data?",
+                                "  THIS CAN NOT BE UNDONE.",
+                                "",
+                                NULL };
+            title_headers = prepend_title((const char**)headers);
+        }
+
+        char* items[] = { " No",
+                          " No",
+                          " No",
+                          " No",
+                          " No",
+                          " No",
+                          " No",
+                          " Yes -- delete all user data",   // [7]
+                          " No",
+                          " No",
+                          " No",
+                          NULL };
+
+        chosen_item = get_menu_selection(title_headers, items, 1, 0);
+        if (chosen_item != 7) {
+            return;
+        }
+    }
+
+    ui_print("\n-- Factory reset...\n");
+    erase_volume("/xdata");
+    erase_volume("/cache");
+#ifdef RECOVERY_HAVE_SD_EXT
+    erase_volume("/sd-ext");
+#endif
+    erase_volume("/sdcard/.android_secure");
+    ui_print("\n-- fix data partision...\n");
+    fix_userdata(USERDATA0 | USERDATA1);
+    ui_print("Factory reset.\n");
+}
+
+static void
 wipe_data(int confirm) {
     int chosen_item = 0;
     if (confirm) {
@@ -653,9 +698,9 @@ wipe_data(int confirm) {
                           " No",
                           " No",
                           " No",
-                          " Yes -- delete all user data, and repair",	// [5]
+                          " Yes -- delete all primary user data",     // [5]
                           " No",
-                          " Yes -- delete all user data",   // [7]
+                          " Yes -- delete all secondary user data",   // [7]
                           " No",
                           " No",
                           " No",
@@ -668,18 +713,14 @@ wipe_data(int confirm) {
     }
 
     ui_print("\n-- Wiping data...\n");
-    device_wipe_data();
-    erase_volume("/data");
+    device_wipe_data(chosen_item == 5 ? USERDATA0 : USERDATA1);
     erase_volume("/cache");
-    if (has_datadata()) {
-        erase_volume("/datadata");
-    }
 #ifdef RECOVERY_HAVE_SD_EXT
     erase_volume("/sd-ext");
 #endif
     erase_volume("/sdcard/.android_secure");
     ui_print("\n-- fix data partision...\n");
-    fix_userdata(chosen_item == 5 ? 1 : 0);
+    fix_userdata(chosen_item == 5 ? USERDATA0 : USERDATA1);
     ui_print("Data wipe complete.\n");
 }
 
@@ -706,6 +747,11 @@ prompt_and_wait() {
             case ITEM_REBOOT:
                 poweroff=0;
                 return;
+
+			case ITEM_FACTORY_RESET:
+                factory_reset(ui_text_visible());
+                if (!ui_text_visible()) return;
+                break;
 
             case ITEM_WIPE_DATA:
                 wipe_data(ui_text_visible());
@@ -882,7 +928,8 @@ main(int argc, char **argv) {
      * uncertainty in timing of umount reocvery.rc,
      * run the umount when the recovery initialize completed.
      */
-    ensure_path_unmounted("/system");
+    ensure_path_unmounted("/system0");
+    ensure_path_unmounted("/system1");
 
     int status = INSTALL_SUCCESS;
     
@@ -907,7 +954,7 @@ main(int argc, char **argv) {
         }
 
         if (status != INSTALL_ERROR) {
-            if (erase_volume("/data")) {
+            if (erase_volume("/xdata")) {
                 ui_print("Data wipe failed.\n");
                 status = INSTALL_ERROR;
             } else if (erase_volume("/cache")) {
@@ -928,15 +975,9 @@ main(int argc, char **argv) {
         status = install_package(update_package);
         if (status != INSTALL_SUCCESS) ui_print("Installation aborted.\n");
     } else if (wipe_data) {
-        if (device_wipe_data()) status = INSTALL_ERROR;
-        if (erase_volume("/data")) {
-            status = INSTALL_ERROR;
-        } else {
-            LOGI("call fix_userdata(true)");
-            fix_userdata(true);
-        }
-        if (wipe_cache && erase_volume("/cache")) status = INSTALL_ERROR;
-        if (status != INSTALL_SUCCESS) ui_print("Data wipe failed.\n");
+        status = INSTALL_ERROR;
+        ui_print("Data wipe not support.\n");
+        ui_print("Use Data wipe menu.\n");
     } else if (wipe_cache) {
         if (wipe_cache && erase_volume("/cache")) status = INSTALL_ERROR;
         if (status != INSTALL_SUCCESS) ui_print("Cache wipe failed.\n");

@@ -164,17 +164,6 @@ int try_mount(const char* device, const char* mount_point, const char* fs_type, 
     return ret;
 }
 
-int is_data_media() {
-    Volume *data = volume_for_path("/data");
-    return data != NULL && strcmp(data->fs_type, "auto") == 0 && volume_for_path("/sdcard") == NULL;
-}
-
-void setup_data_media() {
-    rmdir("/sdcard");
-    mkdir("/data/media", 0755);
-    symlink("/data/media", "/sdcard");
-}
-
 int ensure_path_mounted(const char* path) {
     return ensure_path_mounted_at_mount_point(path, NULL);
 }
@@ -182,15 +171,6 @@ int ensure_path_mounted(const char* path) {
 int ensure_path_mounted_at_mount_point(const char* path, const char* mount_point) {
     Volume* v = volume_for_path(path);
     if (v == NULL) {
-        // no /sdcard? let's assume /data/media
-        if (strstr(path, "/sdcard") == path && is_data_media()) {
-            LOGW("using /data/media, no /sdcard found.\n");
-            int ret;
-            if (0 != (ret = ensure_path_mounted("/data")))
-                return ret;
-            setup_data_media();
-            return 0;
-        }
         LOGE("unknown volume for path [%s]\n", path);
         return -1;
     }
@@ -254,17 +234,8 @@ int ensure_path_mounted_at_mount_point(const char* path, const char* mount_point
 }
 
 int ensure_path_unmounted(const char* path) {
-    // if we are using /data/media, do not ever unmount volumes /data or /sdcard
-    if (volume_for_path("/sdcard") == NULL && (strstr(path, "/sdcard") == path || strstr(path, "/data") == path)) {
-        return 0;
-    }
-
     Volume* v = volume_for_path(path);
     if (v == NULL) {
-        // no /sdcard? let's assume /data/media
-        if (strstr(path, "/sdcard") == path && is_data_media()) {
-            return ensure_path_unmounted("/data");
-        }
         LOGE("unknown volume for path [%s]\n", path);
         return -1;
     }
@@ -293,10 +264,6 @@ int ensure_path_unmounted(const char* path) {
 int format_volume(const char* volume) {
     Volume* v = volume_for_path(volume);
     if (v == NULL) {
-        // no /sdcard? let's assume /data/media
-        if (strstr(volume, "/sdcard") == volume && is_data_media()) {
-            return format_unknown_device(NULL, volume, NULL);
-        }
 #ifdef RECOVERY_HAVE_SD_EXT
         // silent failure for sd-ext
         if (strcmp(volume, "/sd-ext") == 0)

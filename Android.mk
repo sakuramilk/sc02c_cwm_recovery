@@ -34,10 +34,10 @@ ifdef I_AM_KOUSH
 RECOVERY_NAME := ClockworkMod Recovery
 LOCAL_CFLAGS += -DI_AM_KOUSH
 else
-RECOVERY_NAME := CWM-based Galaxy S2 Recovery
+RECOVERY_NAME := CWM Galaxy S2 DualBoot Recovery
 endif
 
-RECOVERY_VERSION := $(RECOVERY_NAME) v5.0.2.6 r4
+RECOVERY_VERSION := $(RECOVERY_NAME) v5.0.2.6 r5
 
 BOARD_CUSTOM_RECOVERY_KEYMAPPING := galaxysii_recovery_ui.c
 

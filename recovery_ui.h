@@ -51,16 +51,19 @@ extern int device_handle_key(int key, int visible);
 // information to the screen.
 extern int device_perform_action(int which);
 
+#define USERDATA0	0x1
+#define USERDATA1	0x2
+
 // Called when we do a wipe data/factory reset operation (either via a
 // reboot from the main system with the --wipe_data flag, or when the
 // user boots into recovery manually and selects the option from the
 // menu.)  Can perform whatever device-specific wiping actions are
 // needed.  Return 0 on success.  The userdata and cache partitions
 // are erased after this returns (whether it returns success or not).
-int device_wipe_data();
+int device_wipe_data(int userdata_type);
 
 // galaxysii factory reset after bootanimation loop fix
-int fix_userdata(int is_install_apk);
+int fix_userdata(int userdata_type);
 
 #define NO_ACTION           -1
 
@@ -71,13 +74,14 @@ int fix_userdata(int is_install_apk);
 
 #define ITEM_REBOOT          0
 #define ITEM_APPLY_SDCARD    1
-#define ITEM_WIPE_DATA       2
-#define ITEM_WIPE_CACHE      3
-#define ITEM_INSTALL_ZIP     4
-#define ITEM_NANDROID        5
-#define ITEM_PARTITION       6
-#define ITEM_ADVANCED        7
-#define ITEM_POWEROFF        8          
+#define ITEM_FACTORY_RESET   2
+#define ITEM_WIPE_DATA       3
+#define ITEM_WIPE_CACHE      4
+#define ITEM_INSTALL_ZIP     5
+#define ITEM_NANDROID        6
+#define ITEM_PARTITION       7
+#define ITEM_ADVANCED        8
+#define ITEM_POWEROFF        9          
 
 // Header text to display above the main menu.
 extern char* MENU_HEADERS[];

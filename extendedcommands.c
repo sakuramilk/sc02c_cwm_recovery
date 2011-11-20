@@ -378,7 +378,7 @@ void show_nandroid_restore_menu()
         return;
 
     if (confirm_selection("Confirm restore?", "Yes - Restore"))
-        nandroid_restore(file, 1, 1, 1, 1, 1, 0);
+        nandroid_restore(file, 1, 1, 1, 1, 1, 1, 0);
 }
 
 #ifndef BOARD_UMS_LUNFILE
@@ -460,10 +460,6 @@ int confirm_selection(const char* title, const char* confirm)
 int format_device(const char *device, const char *path, const char *fs_type) {
     Volume* v = volume_for_path(path);
     if (v == NULL) {
-        // no /sdcard? let's assume /data/media
-        if (strstr(path, "/sdcard") == path && is_data_media()) {
-            return format_unknown_device(NULL, path, NULL);
-        }
         // silent failure for sd-ext
         if (strcmp(path, "/sd-ext") == 0)
             return -1;
@@ -570,16 +566,10 @@ int format_unknown_device(const char *device, const char* path, const char *fs_t
     }
 
     static char tmp[PATH_MAX];
-    if (strcmp(path, "/data") == 0) {
-        sprintf(tmp, "cd /data ; for f in $(ls -a | grep -v ^media$); do rm -rf $f; done");
-        __system(tmp);
-    }
-    else {
-        sprintf(tmp, "rm -rf %s/*", path);
-        __system(tmp);
-        sprintf(tmp, "rm -rf %s/.*", path);
-        __system(tmp);
-    }
+    sprintf(tmp, "rm -rf %s/*", path);
+    __system(tmp);
+    sprintf(tmp, "rm -rf %s/.*", path);
+    __system(tmp);
 
     ensure_path_unmounted(path);
     return 0;
@@ -779,8 +769,9 @@ void show_nandroid_advanced_restore_menu()
     };
 
     static char* list[] = { "Restore boot",
-                            "Restore system",
-                            "Restore data",
+                            "Restore system0",
+                            "Restore system1",
+                            "Restore xdata",
                             "Restore cache",
 #ifdef RECOVERY_HAVE_SD_EXT
                             "Restore sd-ext",
@@ -802,31 +793,35 @@ void show_nandroid_advanced_restore_menu()
     {
         case 0:
             if (confirm_selection(confirm_restore, "Yes - Restore boot"))
-                nandroid_restore(file, 1, 0, 0, 0, 0, 0);
+                nandroid_restore(file, 1, 0, 0, 0, 0, 0, 0);
             break;
         case 1:
-            if (confirm_selection(confirm_restore, "Yes - Restore system"))
-                nandroid_restore(file, 0, 1, 0, 0, 0, 0);
+            if (confirm_selection(confirm_restore, "Yes - Restore system0"))
+                nandroid_restore(file, 0, 1, 0, 0, 0, 0, 0);
             break;
         case 2:
-            if (confirm_selection(confirm_restore, "Yes - Restore data"))
-                nandroid_restore(file, 0, 0, 1, 0, 0, 0);
+            if (confirm_selection(confirm_restore, "Yes - Restore system1"))
+                nandroid_restore(file, 0, 0, 1, 0, 0, 0, 0);
             break;
         case 3:
+            if (confirm_selection(confirm_restore, "Yes - Restore xdata"))
+                nandroid_restore(file, 0, 0, 0, 1, 0, 0, 0);
+            break;
+        case 4:
             if (confirm_selection(confirm_restore, "Yes - Restore cache"))
-                nandroid_restore(file, 0, 0, 0, 1, 0, 0);
+                nandroid_restore(file, 0, 0, 0, 0, 1, 0, 0);
             break;
 #ifdef RECOVERY_HAVE_SD_EXT
-        case 4:
-            if (confirm_selection(confirm_restore, "Yes - Restore sd-ext"))
-                nandroid_restore(file, 0, 0, 0, 0, 1, 0);
-            break;
         case 5:
+            if (confirm_selection(confirm_restore, "Yes - Restore sd-ext"))
+                nandroid_restore(file, 0, 0, 0, 0, 0, 1, 0);
+            break;
+        case 6:
 #else
-		case 4:
+        case 5:
 #endif
             if (confirm_selection(confirm_restore, "Yes - Restore wimax"))
-                nandroid_restore(file, 0, 0, 0, 0, 0, 1);
+                nandroid_restore(file, 0, 0, 0, 0, 0, 0, 1);
             break;
     }
 }
@@ -906,11 +901,33 @@ void show_nandroid_menu()
 	}
 }
 
-void wipe_battery_stats()
+static void wipe_dalvik_cache(int userdata_type)
 {
-    ensure_path_mounted("/data");
-    remove("/data/system/batterystats.bin");
-    ensure_path_unmounted("/data");
+    ensure_path_mounted("/cache");
+    if (userdata_type & USERDATA0) {
+        __system("rm -r /xdata/data0/dalvik-cache");
+        __system("rm -r /cache/dalvik-cache");
+        ui_print("Primary Dalvik Cache wiped.\n");
+    }
+    if (userdata_type & USERDATA0) {
+        __system("rm -r /xdata/data1/dalvik-cache");
+        __system("rm -r /cache/dalvik-cache");
+        ui_print("Secondary Dalvik Cache wiped.\n");
+    }
+    ensure_path_unmounted("/cache");
+    ensure_path_unmounted("/xdata");
+}
+
+void wipe_battery_stats(int userdata_type)
+{
+    ensure_path_mounted("/xdata");
+    if (userdata_type & USERDATA0) {
+        remove("/xdata/data0/system/batterystats.bin");
+    }
+    if (userdata_type & USERDATA1) {
+        remove("/xdata/data1/system/batterystats.bin");
+    }
+    ensure_path_unmounted("/xdata");
     ui_print("Battery Stats wiped.\n");
 }
 
@@ -922,16 +939,19 @@ void show_advanced_menu()
     };
 
     static char* list[] = { "Reboot Recovery",
-                            "Wipe Dalvik Cache",
+                            "Reboot Download",
+                            "Wipe Primary Dalvik Cache",
+                            "Wipe Secondary Dalvik Cache",
                             "Wipe Battery Stats",
-                            "Report Error",
                             "Key Test",
                             "Show log",
 #ifndef BOARD_HAS_SMALL_RECOVERY
                             "Partition SD Card",
+#if 0
                             "Fix Permissions",
+#endif
 #ifdef BOARD_HAS_SDCARD_INTERNAL
-                            "Partition Internal SD Card",
+                            "Partition External SD Card",
 #endif
 #endif
                             NULL
@@ -951,33 +971,32 @@ void show_advanced_menu()
             }
             case 1:
             {
-                if (0 != ensure_path_mounted("/data"))
-                    break;
-#ifdef RECOVERY_HAVE_SD_EXT
-                ensure_path_mounted("/sd-ext");
-#endif
-                ensure_path_mounted("/cache");
-                if (confirm_selection( "Confirm wipe?", "Yes - Wipe Dalvik Cache")) {
-                    __system("rm -r /data/dalvik-cache");
-                    __system("rm -r /cache/dalvik-cache");
-#ifdef RECOVERY_HAVE_SD_EXT
-                    __system("rm -r /sd-ext/dalvik-cache");
-#endif
-                    ui_print("Dalvik Cache wiped.\n");
-                }
-                ensure_path_unmounted("/data");
+                reboot_wrapper("download");
                 break;
             }
             case 2:
             {
-                if (confirm_selection( "Confirm wipe?", "Yes - Wipe Battery Stats"))
-                    wipe_battery_stats();
+                if (0 != ensure_path_mounted("/xdata"))
+                    break;
+                if (confirm_selection( "Confirm wipe?", "Yes - Wipe Primary Dalvik Cache"))
+                    wipe_dalvik_cache(USERDATA0);
                 break;
             }
             case 3:
-                handle_failure(1);
+            {
+                if (0 != ensure_path_mounted("/xdata"))
+                    break;
+                if (confirm_selection( "Confirm wipe?", "Yes - Wipe Secondary Dalvik Cache"))
+                    wipe_dalvik_cache(USERDATA0);
                 break;
+            }
             case 4:
+            {
+                if (confirm_selection( "Confirm wipe?", "Yes - Wipe Battery Stats"))
+                    wipe_battery_stats(USERDATA0 | USERDATA1);
+                break;
+            }
+            case 5:
             {
                 ui_print("Outputting key codes.\n");
                 ui_print("Go back to end debugging.\n");
@@ -992,12 +1011,12 @@ void show_advanced_menu()
                 while (action != GO_BACK);
                 break;
             }
-            case 5:
+            case 6:
             {
                 ui_printlogtail(12);
                 break;
             }
-            case 6:
+            case 7:
             {
                 static char* ext_sizes[] = { "128M",
                                              "256M",
@@ -1040,15 +1059,17 @@ void show_advanced_menu()
                     ui_print("An error occured while partitioning your SD Card. Please see /tmp/recovery.log for more details.\n");
                 break;
             }
-            case 7:
+#if 0
+            case 8:
             {
                 ensure_path_mounted("/system");
-                ensure_path_mounted("/data");
+                ensure_path_mounted("/xdata");
                 ui_print("Fixing permissions...\n");
                 __system("fix_permissions");
                 ui_print("Done!\n");
                 break;
             }
+#endif
             case 8:
             {
                 static char* ext_sizes[] = { "128M",
@@ -1129,11 +1150,9 @@ void create_fstab()
     if (NULL != vol && strcmp(vol->fs_type, "mtd") != 0 && strcmp(vol->fs_type, "emmc") != 0 && strcmp(vol->fs_type, "bml") != 0)
          write_fstab_root("/boot", file);
     write_fstab_root("/cache", file);
-    write_fstab_root("/data", file);
-    if (has_datadata()) {
-        write_fstab_root("/datadata", file);
-    }
-    write_fstab_root("/system", file);
+    write_fstab_root("/xdata", file);
+    write_fstab_root("/system0", file);
+    write_fstab_root("/system1", file);
     write_fstab_root("/sdcard", file);
 #ifdef RECOVERY_HAVE_SD_EXT
     write_fstab_root("/sd-ext", file);
@@ -1167,51 +1186,7 @@ int bml_check_volume(const char *path) {
 void process_volumes() {
     create_fstab();
 
-    if (is_data_media()) {
-        setup_data_media();
-    }
-
     return;
-
-    // dead code.
-    if (device_flash_type() != BML)
-        return;
-
-    ui_print("Checking for ext4 partitions...\n");
-    int ret = 0;
-    ret = bml_check_volume("/system");
-    ret |= bml_check_volume("/data");
-    if (has_datadata())
-        ret |= bml_check_volume("/datadata");
-    ret |= bml_check_volume("/cache");
-    
-    if (ret == 0) {
-        ui_print("Done!\n");
-        return;
-    }
-    
-    char backup_path[PATH_MAX];
-    //time_t t = time(NULL);
-    char backup_name[PATH_MAX];
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    sprintf(backup_name, "before-ext4-convert-%d", tp.tv_sec);
-    if (target_sdcard == TARGET_INTERNAL_SDCARD) {
-        sprintf(backup_path, INTERNAL_SDCARD_PATH "/clockworkmod/backup/%s", backup_name);
-    } else {
-        sprintf(backup_path, EXTERNAL_SDCARD_PATH "/clockworkmod/backup/%s", backup_name);
-    }
-
-    ui_set_show_text(1);
-    ui_print("Filesystems need to be converted to ext4.\n");
-    ui_print("A backup and restore will now take place.\n");
-    ui_print("If anything goes wrong, your backup will be\n");
-    ui_print("named %s. Try restoring it\n", backup_name);
-    ui_print("in case of error.\n");
-
-    nandroid_backup(backup_path);
-    nandroid_restore(backup_path, 1, 1, 1, 1, 1, 0);
-    ui_set_show_text(0);
 }
 
 void handle_failure(int ret)
@@ -1249,11 +1224,6 @@ int is_path_mounted(const char* path) {
         return 1;
     }
     return 0;
-}
-
-int has_datadata() {
-    Volume *vol = volume_for_path("/datadata");
-    return vol != NULL;
 }
 
 int volume_main(int argc, char **argv) {

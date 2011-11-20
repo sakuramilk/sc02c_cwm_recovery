@@ -144,7 +144,7 @@ static nandroid_backup_handler get_backup_handler(const char *backup_path) {
         return NULL;
     }
 
-    if (strcmp(backup_path, "/data") == 0 && is_data_media()) {
+    if (strcmp(backup_path, "/data") == 0) {
         return tar_compress_wrapper;
     }
 
@@ -279,16 +279,14 @@ int nandroid_backup(const char* backup_path)
             return print_and_error("Error while dumping WiMAX image!\n");
     }
 
-    if (0 != (ret = nandroid_backup_partition(backup_path, "/system")))
+    if (0 != (ret = nandroid_backup_partition(backup_path, "/system0")))
         return ret;
 
-    if (0 != (ret = nandroid_backup_partition(backup_path, "/data")))
+    if (0 != (ret = nandroid_backup_partition(backup_path, "/system1")))
         return ret;
 
-    if (has_datadata()) {
-        if (0 != (ret = nandroid_backup_partition(backup_path, "/datadata")))
-            return ret;
-    }
+    if (0 != (ret = nandroid_backup_partition(backup_path, "/xdata")))
+        return ret;
 
     if (0 != stat("/sdcard/.android_secure", &s))
     {
@@ -376,11 +374,15 @@ static nandroid_restore_handler get_restore_handler(const char *backup_path) {
         return NULL;
     }
 
-    if (strcmp(backup_path, "/data") == 0 && is_data_media()) {
+#if 0
+    if (strcmp(backup_path, "/xdata/data0") == 0 ||
+        strcmp(backup_path, "/xdata/data1") == 0 ) {
         return tar_extract_wrapper;
     }
+#endif
 
     // cwr 5, we prefer tar for everything unless it is yaffs2
+    // FIXME: ro.cwm.prefer_tar is already false
     char str[255];
     char* partition;
     property_get("ro.cwm.prefer_tar", str, "false");
@@ -520,7 +522,7 @@ int nandroid_restore_partition(const char* backup_path, const char* root) {
     return nandroid_restore_partition_extended(backup_path, root, 1);
 }
 
-int nandroid_restore(const char* backup_path, int restore_boot, int restore_system, int restore_data, int restore_cache, int restore_sdext, int restore_wimax)
+int nandroid_restore(const char* backup_path, int restore_boot, int restore_system0, int restore_system1, int restore_xdata, int restore_cache, int restore_sdext, int restore_wimax)
 {
     ui_set_background(BACKGROUND_ICON_INSTALLING);
     ui_show_indeterminate_progress();
@@ -575,18 +577,16 @@ int nandroid_restore(const char* backup_path, int restore_boot, int restore_syst
         }
     }
 
-    if (restore_system && 0 != (ret = nandroid_restore_partition(backup_path, "/system")))
+    if (restore_system0 && 0 != (ret = nandroid_restore_partition(backup_path, "/system0")))
         return ret;
 
-    if (restore_data && 0 != (ret = nandroid_restore_partition(backup_path, "/data")))
+    if (restore_system1 && 0 != (ret = nandroid_restore_partition(backup_path, "/system1")))
         return ret;
-        
-    if (has_datadata()) {
-        if (restore_data && 0 != (ret = nandroid_restore_partition(backup_path, "/datadata")))
-            return ret;
-    }
 
-    if (restore_data && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/sdcard/.android_secure", 0)))
+    if (restore_xdata && 0 != (ret = nandroid_restore_partition(backup_path, "/xdata")))
+        return ret;
+
+    if (restore_xdata && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/sdcard/.android_secure", 0)))
         return ret;
 
     if (restore_cache && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/cache", 0)))
@@ -628,7 +628,7 @@ int nandroid_main(int argc, char** argv)
     {
         if (argc != 3)
             return nandroid_usage();
-        return nandroid_restore(argv[2], 1, 1, 1, 1, 1, 0);
+        return nandroid_restore(argv[2], 1, 1, 1, 1, 1, 1, 0);
     }
     
     return nandroid_usage();

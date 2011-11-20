@@ -138,12 +138,7 @@ Value* FormatFn(const char* name, State* state, int argc, Expr* argv[]) {
         return StringValue(strdup(""));
     }
     
-    if (strcmp(path, "/data") == 0 && has_datadata()) {
-        ui_print("Formatting /datadata...\n", path);
-        if (0 != format_volume("/datadata")) {
-            free(path);
-            return StringValue(strdup(""));
-        }
+    if (strcmp(path, "/data") == 0) {
         if (0 != format_volume("/sdcard/.android_secure")) {
             free(path);
             return StringValue(strdup(""));
@@ -212,7 +207,7 @@ Value* RestoreFn(const char* name, State* state, int argc, Expr* argv[]) {
     free(args);
     free(args2);
 
-    if (0 != nandroid_restore(path, restoreboot, restoresystem, restoredata, restorecache, restoresdext, 0)) {
+    if (0 != nandroid_restore(path, restoreboot, restoresystem, restoresystem, restoredata, restorecache, restoresdext, 0)) {
         free(path);
         return StringValue(strdup(""));
     }
