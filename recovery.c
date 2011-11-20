@@ -725,6 +725,52 @@ wipe_data(int confirm) {
 }
 
 static void
+select_boot_rom(int confirm) {
+    int chosen_item = 0;
+    if (confirm) {
+        static char** title_headers = NULL;
+
+        if (title_headers == NULL) {
+            char* headers[] = { "Confirm boot rom?",
+                                "  THIS CAN NOT BE UNDONE.",
+                                "",
+                                NULL };
+            title_headers = prepend_title((const char**)headers);
+        }
+
+        char* items[] = { " No",
+                          " No",
+                          " No",
+                          " No",
+                          " No",
+                          " Yes -- Primary ROM",     // [5]
+                          " No",
+                          " Yes -- Secondary ROM",   // [7]
+                          " No",
+                          " No",
+                          " No",
+                          NULL };
+
+        chosen_item = get_menu_selection(title_headers, items, 1, 0);
+        if (chosen_item != 5 && chosen_item != 7) {
+            return;
+        }
+    }
+
+    if (0 != ensure_path_mounted("/xdata"))
+		return;
+
+    if (chosen_item == 5) {
+        __system("echo ro.boot.rom=primary > /xdata/boot.conf");
+        ui_print("\n-- Select primary rom...\n");
+    } else {
+        __system("echo ro.boot.rom=secondary > /xdata/boot.conf");
+        ui_print("\n-- Select secondary rom...\n");
+    }
+    ensure_path_unmounted("/xdata");
+}
+
+static void
 prompt_and_wait() {
     char** headers = prepend_title((const char**)MENU_HEADERS);
 
@@ -747,6 +793,11 @@ prompt_and_wait() {
             case ITEM_REBOOT:
                 poweroff=0;
                 return;
+
+            case ITEM_BOOT_ROM:
+                select_boot_rom(ui_text_visible());
+                if (!ui_text_visible()) return;
+                break;
 
 			case ITEM_FACTORY_RESET:
                 factory_reset(ui_text_visible());

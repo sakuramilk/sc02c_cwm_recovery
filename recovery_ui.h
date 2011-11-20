@@ -73,15 +73,16 @@ int fix_userdata(int userdata_type);
 #define GO_BACK             -5
 
 #define ITEM_REBOOT          0
-#define ITEM_APPLY_SDCARD    1
-#define ITEM_FACTORY_RESET   2
-#define ITEM_WIPE_DATA       3
-#define ITEM_WIPE_CACHE      4
-#define ITEM_INSTALL_ZIP     5
-#define ITEM_NANDROID        6
-#define ITEM_PARTITION       7
-#define ITEM_ADVANCED        8
-#define ITEM_POWEROFF        9          
+#define ITEM_BOOT_ROM        1
+#define ITEM_APPLY_SDCARD    2
+#define ITEM_FACTORY_RESET   3
+#define ITEM_WIPE_DATA       4
+#define ITEM_WIPE_CACHE      5
+#define ITEM_INSTALL_ZIP     6
+#define ITEM_NANDROID        7
+#define ITEM_PARTITION       8
+#define ITEM_ADVANCED        9
+#define ITEM_POWEROFF        10          
 
 // Header text to display above the main menu.
 extern char* MENU_HEADERS[];
