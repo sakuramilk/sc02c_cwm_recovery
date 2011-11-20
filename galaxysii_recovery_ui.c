@@ -95,6 +95,7 @@ int fix_userdata(int userdata_type) {
     __system("mount -t ext4 /dev/block/mmcblk0p10 /xdata");
 
     if (userdata_type & USERDATA0) {
+        mkdir("/xdata/data0", 0775);
         mkdir("/xdata/data0/system", 0775);
         mkdir("/xdata/data0/system/dropbox", 0700);
         mkdir("/xdata/data0/system/registered_services", 0771);
@@ -111,6 +112,7 @@ int fix_userdata(int userdata_type) {
     }
 
     if (userdata_type & USERDATA1) {
+        mkdir("/xdata/data1", 0775);
         mkdir("/xdata/data1/system", 0775);
         mkdir("/xdata/data1/system/dropbox", 0700);
         mkdir("/xdata/data1/system/registered_services", 0771);
