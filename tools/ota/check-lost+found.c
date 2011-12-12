@@ -37,7 +37,7 @@ static const char *kOutputDir = "/xdata/tombstones";
 static const char *kOutputFile = "/xdata/tombstones/check-lost+found-log";
 
 // Partitions to check
-static const char *kPartitions[] = { "/system", "/xdata", "/cache", NULL };
+static const char *kPartitions[] = { "/system0", "/system1", "/xdata", "/cache", NULL };
 
 /*
  * 1. If /data/misc/forced-reboot is missing, touch it & force "unclean" boot.

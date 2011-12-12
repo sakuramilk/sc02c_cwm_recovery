@@ -41,6 +41,7 @@
 #include "edify/expr.h"
 #include <libgen.h>
 #include "mtdutils/mtdutils.h"
+#include "bmlutils/bmlutils.h"
 
 #define INTERNAL_SDCARD_PATH     "/sdcard"
 #define EXTERNAL_SDCARD_PATH     "/emmc"
@@ -472,6 +473,18 @@ int format_device(const char *device, const char *path, const char *fs_type) {
         return -1;
     }
 
+    if (strcmp(fs_type, "rfs") == 0) {
+        if (ensure_path_unmounted(path) != 0) {
+            LOGE("format_volume failed to unmount \"%s\"\n", v->mount_point);
+            return -1;
+        }
+        if (0 != format_rfs_device(device, path)) {
+            LOGE("format_volume: format_rfs_device failed on %s\n", device);
+            return -1;
+        }
+        return 0;
+    }
+ 
     if (strcmp(v->mount_point, path) != 0) {
         return format_unknown_device(v->device, path, NULL);
     }
@@ -909,7 +922,7 @@ static void wipe_dalvik_cache(int userdata_type)
         __system("rm -r /cache/dalvik-cache");
         ui_print("Primary Dalvik Cache wiped.\n");
     }
-    if (userdata_type & USERDATA0) {
+    if (userdata_type & USERDATA1) {
         __system("rm -r /xdata/data1/dalvik-cache");
         __system("rm -r /cache/dalvik-cache");
         ui_print("Secondary Dalvik Cache wiped.\n");
@@ -987,7 +1000,7 @@ void show_advanced_menu()
                 if (0 != ensure_path_mounted("/xdata"))
                     break;
                 if (confirm_selection( "Confirm wipe?", "Yes - Wipe Secondary Dalvik Cache"))
-                    wipe_dalvik_cache(USERDATA0);
+                    wipe_dalvik_cache(USERDATA1);
                 break;
             }
             case 4:
