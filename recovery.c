@@ -632,6 +632,51 @@ update_directory(const char* path, const char* unmount_when_done) {
 }
 
 static void
+factory_reset(int confirm) {
+    int chosen_item = 0;
+    if (confirm) {
+        static char** title_headers = NULL;
+
+        if (title_headers == NULL) {
+            char* headers[] = { "Confirm wipe of all user data?",
+                                "  THIS CAN NOT BE UNDONE.",
+                                "",
+                                NULL };
+            title_headers = prepend_title((const char**)headers);
+        }
+
+        char* items[] = { " No",
+                          " No",
+                          " No",
+                          " No",
+                          " No",
+                          " No",
+                          " No",
+                          " Yes -- delete all user data",   // [7]
+                          " No",
+                          " No",
+                          " No",
+                          NULL };
+
+        chosen_item = get_menu_selection(title_headers, items, 1, 0);
+        if (chosen_item != 7) {
+            return;
+        }
+    }
+
+    ui_print("\n-- Factory reset...\n");
+    erase_volume("/xdata");
+    erase_volume("/cache");
+#ifdef RECOVERY_HAVE_SD_EXT
+    erase_volume("/sd-ext");
+#endif
+    erase_volume("/sdcard/.android_secure");
+    ui_print("\n-- fix data partision...\n");
+    fix_userdata(USERDATA0 | USERDATA1);
+    ui_print("Factory reset.\n");
+}
+
+static void
 wipe_data(int confirm) {
     int chosen_item = 0;
     if (confirm) {
@@ -650,9 +695,68 @@ wipe_data(int confirm) {
                           " No",
                           " No",
                           " No",
-                          " Yes -- delete all user data, and repair",	// [5]
+#ifdef DUALBOOT
+                          " Yes -- delete all primary user data",     // [5]
                           " No",
-                          " Yes -- delete all user data",   // [7]
+                          " Yes -- delete all secondary user data",   // [7]
+#else
+                          " No",
+                          " No",
+                          " Yes -- delete user data",   // [7]
+#endif
+                          " No",
+                          " No",
+                          " No",
+                          NULL };
+
+        chosen_item = get_menu_selection(title_headers, items, 1, 0);
+#ifdef DUALBOOT
+        if (chosen_item != 5 && chosen_item != 7) {
+#else
+        if (chosen_item != 7) {
+#endif
+            return;
+        }
+    }
+
+    ui_print("\n-- Wiping data...\n");
+    device_wipe_data(chosen_item == 5 ? USERDATA0 : USERDATA1);
+    erase_volume("/cache");
+    if (has_datadata()) {
+        erase_volume("/datadata");
+    }
+#ifdef RECOVERY_HAVE_SD_EXT
+    erase_volume("/sd-ext");
+#endif
+    erase_volume("/sdcard/.android_secure");
+    ui_print("\n-- fix data partision...\n");
+    fix_userdata(chosen_item == 5 ? USERDATA0 : USERDATA1);
+    ui_print("Data wipe complete.\n");
+}
+
+static void
+select_boot_rom(int confirm) {
+#ifdef DUALBOOT
+    int chosen_item = 0;
+    if (confirm) {
+        static char** title_headers = NULL;
+
+        if (title_headers == NULL) {
+            char* headers[] = { "Confirm boot rom?",
+                                "  THIS CAN NOT BE UNDONE.",
+                                "",
+                                NULL };
+            title_headers = prepend_title((const char**)headers);
+        }
+
+        char* items[] = { " No",
+                          " No",
+                          " No",
+                          " No",
+                          " No",
+                          " Yes -- Primary ROM",     // [5]
+                          " No",
+                          " Yes -- Secondary ROM",   // [7]
                           " No",
                           " No",
                           " No",
@@ -664,20 +768,20 @@ wipe_data(int confirm) {
         }
     }
 
-    ui_print("\n-- Wiping data...\n");
-    device_wipe_data();
-    erase_volume("/data");
-    erase_volume("/cache");
-    if (has_datadata()) {
-        erase_volume("/datadata");
+    if (0 != ensure_path_mounted("/xdata"))
+		return;
+
+    if (chosen_item == 5) {
+        __system("echo ro.boot.rom=primary > /xdata/boot.conf");
+        ui_print("\n-- Select primary rom...\n");
+    } else {
+        __system("echo ro.boot.rom=secondary > /xdata/boot.conf");
+        ui_print("\n-- Select secondary rom...\n");
     }
-#ifdef RECOVERY_HAVE_SD_EXT
-    erase_volume("/sd-ext");
+    ensure_path_unmounted("/xdata");
+#else
+    ui_print("not support.\n");
 #endif
-    erase_volume("/sdcard/.android_secure");
-    ui_print("\n-- fix data partision...\n");
-    fix_userdata(chosen_item == 5 ? 1 : 0);
-    ui_print("Data wipe complete.\n");
 }
 
 static void
@@ -704,6 +808,16 @@ prompt_and_wait() {
             case ITEM_REBOOT:
                 poweroff=0;
                 return;
+
+            case ITEM_BOOT_ROM:
+                select_boot_rom(ui_text_visible());
+                if (!ui_text_visible()) return;
+                break;
+
+			case ITEM_FACTORY_RESET:
+                factory_reset(ui_text_visible());
+                if (!ui_text_visible()) return;
+                break;
 
             case ITEM_WIPE_DATA:
                 wipe_data(ui_text_visible());
@@ -868,6 +982,11 @@ main(int argc, char **argv) {
         status = install_package(update_package);
         if (status != INSTALL_SUCCESS) ui_print("Installation aborted.\n");
     } else if (wipe_data) {
+#ifdef DUALBOOT
+        status = INSTALL_ERROR;
+        ui_print("Data wipe not support.\n");
+        ui_print("Use Data wipe menu.\n");
+#else
         if (device_wipe_data()) status = INSTALL_ERROR;
         if (erase_volume("/data")) {
             status = INSTALL_ERROR;
@@ -878,6 +997,7 @@ main(int argc, char **argv) {
         if (has_datadata() && erase_volume("/datadata")) status = INSTALL_ERROR;
         if (wipe_cache && erase_volume("/cache")) status = INSTALL_ERROR;
         if (status != INSTALL_SUCCESS) ui_print("Data wipe failed.\n");
+#endif
     } else if (wipe_cache) {
         if (wipe_cache && erase_volume("/cache")) status = INSTALL_ERROR;
         if (status != INSTALL_SUCCESS) ui_print("Cache wipe failed.\n");

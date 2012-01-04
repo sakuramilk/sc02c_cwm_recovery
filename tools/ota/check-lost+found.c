@@ -29,6 +29,17 @@
 
 #include "private/android_filesystem_config.h"
 
+#ifdef DUALBOOT
+// Sentinel file used to track whether we've forced a reboot
+static const char *kMarkerFile = "/xdata/misc/check-lost+found-rebooted-2";
+
+// Output file in tombstones directory (first 8K will be uploaded)
+static const char *kOutputDir = "/xdata/tombstones";
+static const char *kOutputFile = "/xdata/tombstones/check-lost+found-log";
+
+// Partitions to check
+static const char *kPartitions[] = { "/system0", "/system1", "/xdata", "/cache", NULL };
+#else
 // Sentinel file used to track whether we've forced a reboot
 static const char *kMarkerFile = "/data/misc/check-lost+found-rebooted-2";
 
@@ -38,6 +49,7 @@ static const char *kOutputFile = "/data/tombstones/check-lost+found-log";
 
 // Partitions to check
 static const char *kPartitions[] = { "/system", "/data", "/cache", NULL };
+#endif
 
 /*
  * 1. If /data/misc/forced-reboot is missing, touch it & force "unclean" boot.

@@ -23,8 +23,10 @@
 char* MENU_HEADERS[] = { NULL };
 
 char* MENU_ITEMS[] = { "reboot system now",
+                       "select boot rom",
                        "install zip from sdcard",
-                       "wipe data/factory reset",
+                       "factory reset",
+                       "wipe data partition",
                        "wipe cache partition",
                        "backup and restore",
                        "mounts and storage",
@@ -46,11 +48,26 @@ int device_perform_action(int which) {
     return which;
 }
 
-int device_wipe_data() {
+int device_wipe_data(int userdata_type) {
+#ifdef DUALBOOT
+    __system("mount -t ext4 /dev/block/mmcblk0p10 /xdata");
+    if (userdata_type & USERDATA0) {
+        __system("rm -rf /xdata/data0/*");
+        __system("rm -rf /xdata/data0/.*");
+    }
+
+    if (userdata_type & USERDATA1) {
+        __system("rm -rf /xdata/data1/*");
+        __system("rm -rf /xdata/data1/.*");
+    }
+    __system("umount /xdata");
+#else
+    erase_volume("/data");
+#endif
     return 0;
 }
 
-int fix_userdata(int is_install_apk)
+int fix_userdata(int userdata_type)
 {
 #if 0
     __system("mount -t ext4 /dev/block/mmcblk0p10 /data");
@@ -69,7 +86,7 @@ int fix_userdata(int is_install_apk)
     chown("/data/system/throttle", 1000, 1000);
     chown("/data/system/usagestats", 1000, 1000);
     
-    if (is_install_apk)
+    if (userdata_type)
     {
         __system("mount -t ext4 /dev/block/mmcblk0p12 /preload");
         usleep(3000);

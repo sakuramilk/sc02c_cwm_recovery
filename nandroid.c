@@ -279,11 +279,22 @@ int nandroid_backup(const char* backup_path)
             return print_and_error("Error while dumping WiMAX image!\n");
     }
 
+#ifdef DUALBOOT
+    if (0 != (ret = nandroid_backup_partition(backup_path, "/system0")))
+        return ret;
+
+    if (0 != (ret = nandroid_backup_partition(backup_path, "/system1")))
+        return ret;
+
+    if (0 != (ret = nandroid_backup_partition(backup_path, "/xdata")))
+        return ret;
+#else
     if (0 != (ret = nandroid_backup_partition(backup_path, "/system")))
         return ret;
 
     if (0 != (ret = nandroid_backup_partition(backup_path, "/data")))
         return ret;
+#endif
 
     if (has_datadata()) {
         if (0 != (ret = nandroid_backup_partition(backup_path, "/datadata")))
@@ -376,9 +387,18 @@ static nandroid_restore_handler get_restore_handler(const char *backup_path) {
         return NULL;
     }
 
+#ifdef DUALBOOT
+#if 0
+    if (strcmp(backup_path, "/xdata/data0") == 0 ||
+        strcmp(backup_path, "/xdata/data1") == 0 ) {
+        return tar_extract_wrapper;
+    }
+#endif
+#else
     if (strcmp(backup_path, "/data") == 0 && is_data_media()) {
         return tar_extract_wrapper;
     }
+#endif
 
     // cwr 5, we prefer tar for everything unless it is yaffs2
     char str[255];
@@ -455,8 +475,10 @@ int nandroid_restore_partition_extended(const char* backup_path, const char* mou
         // Or of volume does not exist (.android_secure), just rm -rf.
         if (vol == NULL || 0 == strcmp(vol->fs_type, "auto"))
             backup_filesystem = NULL;
+#ifndef DUALBOOT
         else if (0 == strcmp(vol->mount_point, "/data") && volume_for_path("/sdcard") == NULL && is_data_media())
 	         backup_filesystem = NULL;
+#endif
     }
 
     ensure_directory(mount_point);
@@ -527,7 +549,7 @@ int nandroid_restore_partition(const char* backup_path, const char* root) {
     return nandroid_restore_partition_extended(backup_path, root, 1);
 }
 
-int nandroid_restore(const char* backup_path, int restore_boot, int restore_system, int restore_data, int restore_cache, int restore_sdext, int restore_wimax)
+int nandroid_restore(const char* backup_path, int restore_boot, int restore_system0, int restore_system1, int restore_xdata, int restore_cache, int restore_sdext, int restore_wimax)
 {
     ui_set_background(BACKGROUND_ICON_INSTALLING);
     ui_show_indeterminate_progress();
@@ -577,18 +599,29 @@ int nandroid_restore(const char* backup_path, int restore_boot, int restore_syst
         }
     }
 
-    if (restore_system && 0 != (ret = nandroid_restore_partition(backup_path, "/system")))
+#ifdef DUALBOOT
+    if (restore_system0 && 0 != (ret = nandroid_restore_partition(backup_path, "/system0")))
         return ret;
 
-    if (restore_data && 0 != (ret = nandroid_restore_partition(backup_path, "/data")))
+    if (restore_system1 && 0 != (ret = nandroid_restore_partition(backup_path, "/system1")))
         return ret;
-        
+
+    if (restore_xdata && 0 != (ret = nandroid_restore_partition(backup_path, "/xdata")))
+        return ret;
+#else
+    if (restore_system0 && 0 != (ret = nandroid_restore_partition(backup_path, "/system")))
+        return ret;
+
+    if (restore_xdata && 0 != (ret = nandroid_restore_partition(backup_path, "/data")))
+        return ret;
+#endif
+
     if (has_datadata()) {
-        if (restore_data && 0 != (ret = nandroid_restore_partition(backup_path, "/datadata")))
+        if (restore_xdata && 0 != (ret = nandroid_restore_partition(backup_path, "/datadata")))
             return ret;
     }
 
-    if (restore_data && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/sdcard/.android_secure", 0)))
+    if (restore_xdata && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/sdcard/.android_secure", 0)))
         return ret;
 
     if (restore_cache && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/cache", 0)))
@@ -630,7 +663,7 @@ int nandroid_main(int argc, char** argv)
     {
         if (argc != 3)
             return nandroid_usage();
-        return nandroid_restore(argv[2], 1, 1, 1, 1, 1, 0);
+        return nandroid_restore(argv[2], 1, 1, 1, 1, 1, 1, 0);
     }
     
     return nandroid_usage();
