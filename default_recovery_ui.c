@@ -48,6 +48,7 @@ int device_perform_action(int which) {
     return which;
 }
 
+extern int erase_volume(const char *volume);
 int device_wipe_data(int userdata_type) {
 #ifdef DUALBOOT
     __system("mount -t ext4 /dev/block/mmcblk0p10 /xdata");

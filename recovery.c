@@ -300,7 +300,7 @@ finish_recovery(const char *send_intent) {
     sync();  // For good measure.
 }
 
-static int
+int
 erase_volume(const char *volume) {
     ui_set_background(BACKGROUND_ICON_INSTALLING);
     ui_show_indeterminate_progress();
@@ -987,7 +987,6 @@ main(int argc, char **argv) {
         ui_print("Data wipe not support.\n");
         ui_print("Use Data wipe menu.\n");
 #else
-        if (device_wipe_data()) status = INSTALL_ERROR;
         if (erase_volume("/data")) {
             status = INSTALL_ERROR;
         } else {
