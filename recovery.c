@@ -763,7 +763,7 @@ print_property(const char *key, const char *name, void *cookie) {
 
 int
 main(int argc, char **argv) {
-	if (strstr(argv[0], "recovery") == NULL)
+	if (strcmp(basename(argv[0]), "recovery") != 0)
 	{
 	    if (strstr(argv[0], "flash_image") != NULL)
 	        return flash_image_main(argc, argv);
@@ -966,7 +966,10 @@ main(int argc, char **argv) {
         }
     }
 
-    if (status != INSTALL_SUCCESS && !is_user_initiated_recovery) ui_set_background(BACKGROUND_ICON_ERROR);
+    if (status != INSTALL_SUCCESS && !is_user_initiated_recovery) {
+        ui_set_show_text(1);
+        ui_set_background(BACKGROUND_ICON_ERROR);
+    }
     if (status != INSTALL_SUCCESS || ui_text_visible()) {
         prompt_and_wait();
     }
