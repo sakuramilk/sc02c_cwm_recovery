@@ -427,8 +427,14 @@ copy_sideloaded_package(const char* original_path) {
 
 static char**
 prepend_title(char** headers) {
+    char romId[4];
+    char target[100];
+    FILE* f = fopen("/misc/boot_rom_id", "rb");
+    fread(&romId, 4, 1, f);
+    fclose(f);
+    sprintf(target, "TARGET ROM%s", romId;
     char* title[] = { EXPAND(RECOVERY_VERSION),
-                      "",
+                      target,
                       NULL };
 
     // count the number of lines in our title, plus the
@@ -809,22 +815,22 @@ print_property(const char *key, const char *name, void *cookie) {
 
 int
 main(int argc, char **argv) {
-	if (strcmp(basename(argv[0]), "recovery") != 0)
-	{
-	    if (strstr(argv[0], "flash_image") != NULL)
-	        return flash_image_main(argc, argv);
-	    if (strstr(argv[0], "volume") != NULL)
-	        return volume_main(argc, argv);
-	    if (strstr(argv[0], "edify") != NULL)
-	        return edify_main(argc, argv);
-	    if (strstr(argv[0], "dump_image") != NULL)
-	        return dump_image_main(argc, argv);
-	    if (strstr(argv[0], "erase_image") != NULL)
-	        return erase_image_main(argc, argv);
-	    if (strstr(argv[0], "mkyaffs2image") != NULL)
-	        return mkyaffs2image_main(argc, argv);
-	    if (strstr(argv[0], "unyaffs") != NULL)
-	        return unyaffs_main(argc, argv);
+    if (strcmp(basename(argv[0]), "recovery") != 0)
+    {
+        if (strstr(argv[0], "flash_image") != NULL)
+            return flash_image_main(argc, argv);
+        if (strstr(argv[0], "volume") != NULL)
+            return volume_main(argc, argv);
+        if (strstr(argv[0], "edify") != NULL)
+            return edify_main(argc, argv);
+        if (strstr(argv[0], "dump_image") != NULL)
+            return dump_image_main(argc, argv);
+        if (strstr(argv[0], "erase_image") != NULL)
+            return erase_image_main(argc, argv);
+        if (strstr(argv[0], "mkyaffs2image") != NULL)
+            return mkyaffs2image_main(argc, argv);
+        if (strstr(argv[0], "unyaffs") != NULL)
+            return unyaffs_main(argc, argv);
         if (strstr(argv[0], "nandroid"))
             return nandroid_main(argc, argv);
         if (strstr(argv[0], "reboot"))
@@ -841,8 +847,8 @@ main(int argc, char **argv) {
         }
         if (strstr(argv[0], "setprop"))
             return setprop_main(argc, argv);
-		return busybox_driver(argc, argv);
-	}
+        return busybox_driver(argc, argv);
+    }
     __system("/sbin/postrecoveryboot.sh");
 
     int is_user_initiated_recovery = 0;
@@ -857,15 +863,8 @@ main(int argc, char **argv) {
     freopen(TEMPORARY_LOG_FILE, "a", stderr); setbuf(stderr, NULL);
     printf("Starting recovery on %s", ctime(&start));
 
-    char romId[4];
-    {
-        FILE* f = fopen("/misc/boot_rom_id", "rb");
-        fread(&romId, 4, 1, f);
-        fclose(f);
-    }
-
     ui_init();
-    ui_print(EXPAND(RECOVERY_VERSION)" : ROM%s\n", romId);
+    ui_print(EXPAND(RECOVERY_VERSION)"\n");
     load_volume_table();
     process_volumes();
     LOGI("Processing arguments.\n");
