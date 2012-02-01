@@ -86,11 +86,11 @@ void load_volume_table() {
         char* mount_point = strtok(buffer+i, " \t\n");
         char* fs_type = strtok(NULL, " \t\n");
         char* device = strtok(NULL, " \t\n");
+        char* fs_options = strtok(NULL, " \t\n");
         // lines may optionally have a second device, to use if
         // mounting the first one fails.
         char* device2 = strtok(NULL, " \t\n");
         char* fs_type2 = strtok(NULL, " \t\n");
-        char* fs_options = strtok(NULL, " \t\n");
         char* fs_options2 = strtok(NULL, " \t\n");
 
         if (mount_point && fs_type && device) {

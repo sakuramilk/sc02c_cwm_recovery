@@ -914,16 +914,17 @@ void show_advanced_menu()
     };
 
     static char* list[] = { "Reboot Recovery",
+                            "Reboot Download",
                             "Wipe Dalvik Cache",
                             "Wipe Battery Stats",
                             "Report Error",
                             "Key Test",
                             "Show log",
 #ifndef BOARD_HAS_SMALL_RECOVERY
-                            "Partition SD Card",
+                            "Internal Partition SD Card",
                             "Fix Permissions",
 #ifdef BOARD_HAS_SDCARD_INTERNAL
-                            "Partition Internal SD Card",
+                            "External Partition Internal SD Card",
 #endif
 #endif
                             NULL
@@ -943,6 +944,11 @@ void show_advanced_menu()
             }
             case 1:
             {
+                reboot_wrapper("download");
+                break;
+            }
+            case 2:
+            {
                 if (0 != ensure_path_mounted("/data"))
                     break;
 #ifdef RECOVERY_HAVE_SD_EXT
@@ -960,16 +966,16 @@ void show_advanced_menu()
                 ensure_path_unmounted("/data");
                 break;
             }
-            case 2:
+            case 3:
             {
                 if (confirm_selection( "Confirm wipe?", "Yes - Wipe Battery Stats"))
                     wipe_battery_stats();
                 break;
             }
-            case 3:
+            case 4:
                 handle_failure(1);
                 break;
-            case 4:
+            case 5:
             {
                 ui_print("Outputting key codes.\n");
                 ui_print("Go back to end debugging.\n");
@@ -984,12 +990,12 @@ void show_advanced_menu()
                 while (action != GO_BACK);
                 break;
             }
-            case 5:
+            case 6:
             {
                 ui_printlogtail(12);
                 break;
             }
-            case 6:
+            case 7:
             {
                 static char* ext_sizes[] = { "128M",
                                              "256M",
@@ -1032,7 +1038,7 @@ void show_advanced_menu()
                     ui_print("An error occured while partitioning your SD Card. Please see /tmp/recovery.log for more details.\n");
                 break;
             }
-            case 7:
+            case 8:
             {
                 ensure_path_mounted("/system");
                 ensure_path_mounted("/data");
@@ -1041,7 +1047,7 @@ void show_advanced_menu()
                 ui_print("Done!\n");
                 break;
             }
-            case 8:
+            case 9:
             {
                 static char* ext_sizes[] = { "128M",
                                              "256M",
@@ -1105,7 +1111,11 @@ void write_fstab_root(char *path, FILE *file)
     fprintf(file, "%s ", device);
     fprintf(file, "%s ", path);
     // special case rfs cause auto will mount it as vfat on samsung.
-    fprintf(file, "%s rw\n", vol->fs_type2 != NULL && strcmp(vol->fs_type, "rfs") != 0 ? "auto" : vol->fs_type);
+    fprintf(file, "%s rw", vol->fs_type2 != NULL && strcmp(vol->fs_type, "rfs") != 0 ? "auto" : vol->fs_type);
+    if (vol->fs_options)
+        fprintf(file, " %s\n", vol->fs_options);
+    else
+        fprintf(file, "\n");
 }
 
 void create_fstab()

@@ -684,6 +684,47 @@ wipe_data(int confirm) {
 }
 
 static void
+select_boot_rom(int confirm) {
+    int chosen_item = 0;
+    char cmd[100];
+    if (confirm) {
+        static char** title_headers = NULL;
+
+        if (title_headers == NULL) {
+            char* headers[] = { "Seelct boot rom?",
+                                "  THIS CAN NOT BE UNDONE.",
+                                "",
+                                NULL };
+            title_headers = prepend_title((const char**)headers);
+        }
+
+        char* items[] = { " ROM0",
+                          " ROM1",
+                          " ROM2",
+                          " ROM3",
+                          " ROM4",
+                          " ROM5",
+                          " ROM6",
+                          " ROM7",
+                          NULL };
+
+        chosen_item = get_menu_selection(title_headers, items, 1, 0);
+        if (chosen_item > 7) {
+            return;
+        }
+    }
+
+    if (0 != ensure_path_mounted("/xdata"))
+		return;
+
+    __system("mv /xdata/mbs.conf /xdata/mbs.conf.old");
+    sprintf(cmd, "sed -e \"s/mbs\\.boot\\.rom=.*$/mbs\\.boot\\.rom=%d/g\" /xdata/mbs.conf.old > /xdata/mbs.conf", chosen_item);
+    __system(cmd);
+    ui_print("\n-- Select ROM%d...\n", chosen_item);
+    ensure_path_unmounted("/xdata");
+}
+
+static void
 prompt_and_wait() {
     char** headers = prepend_title((const char**)MENU_HEADERS);
 
@@ -706,6 +747,11 @@ prompt_and_wait() {
             case ITEM_REBOOT:
                 poweroff=0;
                 return;
+
+            case ITEM_BOOT_ROM:
+                select_boot_rom(ui_text_visible());
+                if (!ui_text_visible()) return;
+                break;
 
             case ITEM_WIPE_DATA:
                 wipe_data(ui_text_visible());
@@ -811,8 +857,15 @@ main(int argc, char **argv) {
     freopen(TEMPORARY_LOG_FILE, "a", stderr); setbuf(stderr, NULL);
     printf("Starting recovery on %s", ctime(&start));
 
+    char romId[4];
+    {
+        FILE* f = fopen("/misc/boot_rom_id", "rb");
+        fread(&romId, 4, 1, f);
+        fclose(f);
+    }
+
     ui_init();
-    ui_print(EXPAND(RECOVERY_VERSION)"\n");
+    ui_print(EXPAND(RECOVERY_VERSION)" : ROM%s\n", romId);
     load_volume_table();
     process_volumes();
     LOGI("Processing arguments.\n");
