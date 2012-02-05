@@ -146,6 +146,7 @@ static const char *SIDELOAD_TEMP_DIR = "/tmp/sideload";
 
 static const int MAX_ARG_LENGTH = 4096;
 static const int MAX_ARGS = 100;
+char TARGET_ROM[100];
 
 // open a given path, mounting partitions as necessary
 static FILE*
@@ -427,14 +428,9 @@ copy_sideloaded_package(const char* original_path) {
 
 static char**
 prepend_title(char** headers) {
-    char romId[4];
-    char target[100];
-    FILE* f = fopen("/misc/boot_rom_id", "rb");
-    fread(&romId, 4, 1, f);
-    fclose(f);
-    sprintf(target, "TARGET ROM%s", romId;
     char* title[] = { EXPAND(RECOVERY_VERSION),
-                      target,
+                      TARGET_ROM,
+                      "",
                       NULL };
 
     // count the number of lines in our title, plus the
@@ -835,11 +831,36 @@ main(int argc, char **argv) {
             return nandroid_main(argc, argv);
         if (strstr(argv[0], "reboot"))
             return reboot_main(argc, argv);
-#ifdef BOARD_RECOVERY_HANDLES_MOUNT
-        if (strstr(argv[0], "mount") && argc == 2 && !strstr(argv[0], "umount"))
+//#ifdef BOARD_RECOVERY_HANDLES_MOUNT
+#if 1
+//      if (strstr(argv[0], "mount") && argc == 2 && !strstr(argv[0], "umount"))
+        if (strstr(argv[0], "mount") && !strstr(argv[0], "umount"))
         {
-            load_volume_table();
-            return ensure_path_mounted(argv[1]);
+            int i, chg_system = 0, chg_data = 0;
+            if (argc > 2) {
+                for (i = 2; i < argc; i++) {
+                    if (strcmp(argv[i], "/system")) {
+                        chg_system = 0;
+                        break;
+                    } else if (strcmp(argv[i], "/data")) {
+                        chg_data = 0;
+                        break;
+                    }
+                }
+            }
+            if (chg_system) {
+                const int tmp_argc = 2;
+                const char** tmp_argv = { "mount", "/system" };
+                return busybox_driver(tmp_argc, tmp_argv);
+            } else if (chg_data) {
+                const int tmp_argc = 2;
+                const char** tmp_argv = { "mount", "/xdata" };
+                return busybox_driver(tmp_argc, tmp_argv);
+            } else {
+                //load_volume_table();
+                //return ensure_path_mounted(argv[1]);
+                return busybox_driver(argc, argv);
+            }
         }
 #endif
         if (strstr(argv[0], "poweroff")){
@@ -847,6 +868,7 @@ main(int argc, char **argv) {
         }
         if (strstr(argv[0], "setprop"))
             return setprop_main(argc, argv);
+
         return busybox_driver(argc, argv);
     }
     __system("/sbin/postrecoveryboot.sh");
@@ -862,6 +884,12 @@ main(int argc, char **argv) {
     freopen(TEMPORARY_LOG_FILE, "a", stdout); setbuf(stdout, NULL);
     freopen(TEMPORARY_LOG_FILE, "a", stderr); setbuf(stderr, NULL);
     printf("Starting recovery on %s", ctime(&start));
+
+    char romId[4] = { 0 };
+    FILE* f = fopen("/mbs/stat/bootrom", "rb");
+    fread(&romId, 1, 4, f);
+    fclose(f);
+    sprintf(TARGET_ROM, "TARGET ROM%s", romId);
 
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)"\n");

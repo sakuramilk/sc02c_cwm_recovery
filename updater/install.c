@@ -42,6 +42,9 @@
 #include "make_ext4fs.h"
 #endif
 
+extern int multi_mount(
+    const char* device, const char* mount_point, const char* fs_type, const char* fs_options);
+
 // mount(fs_type, partition_type, location, mount_point)
 //
 //    fs_type="yaffs2" partition_type="MTD"     location=partition
@@ -80,31 +83,33 @@ Value* MountFn(const char* name, State* state, int argc, Expr* argv[]) {
 
     mkdir(mount_point, 0755);
 
-    if (strcmp(partition_type, "MTD") == 0) {
-        mtd_scan_partitions();
-        const MtdPartition* mtd;
-        mtd = mtd_find_partition_by_name(location);
-        if (mtd == NULL) {
-            fprintf(stderr, "%s: no mtd partition named \"%s\"",
-                    name, location);
-            result = strdup("");
-            goto done;
-        }
-        if (mtd_mount_partition(mtd, mount_point, fs_type, 0 /* rw */) != 0) {
-            fprintf(stderr, "mtd mount of %s failed: %s\n",
-                    location, strerror(errno));
-            result = strdup("");
-            goto done;
-        }
-        result = mount_point;
-    } else {
-        if (mount(location, mount_point, fs_type,
-                  MS_NOATIME | MS_NODEV | MS_NODIRATIME, "") < 0) {
-            fprintf(stderr, "%s: failed to mount %s at %s: %s\n",
-                    name, location, mount_point, strerror(errno));
-            result = strdup("");
-        } else {
+    if (!multi_mount(location, mount_point, fs_type, NULL)) {
+        if (strcmp(partition_type, "MTD") == 0) {
+            mtd_scan_partitions();
+            const MtdPartition* mtd;
+            mtd = mtd_find_partition_by_name(location);
+            if (mtd == NULL) {
+                fprintf(stderr, "%s: no mtd partition named \"%s\"",
+                        name, location);
+                result = strdup("");
+                goto done;
+            }
+            if (mtd_mount_partition(mtd, mount_point, fs_type, 0 /* rw */) != 0) {
+                fprintf(stderr, "mtd mount of %s failed: %s\n",
+                        location, strerror(errno));
+                result = strdup("");
+                goto done;
+            }
             result = mount_point;
+        } else {
+            if (mount(location, mount_point, fs_type,
+                      MS_NOATIME | MS_NODEV | MS_NODIRATIME, "") < 0) {
+                fprintf(stderr, "%s: failed to mount %s at %s: %s\n",
+                        name, location, mount_point, strerror(errno));
+                result = strdup("");
+            } else {
+                result = mount_point;
+            }
         }
     }
 

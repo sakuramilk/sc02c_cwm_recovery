@@ -31,6 +31,9 @@
 #include "flashutils/flashutils.h"
 #include "extendedcommands.h"
 
+extern int multi_mount(
+    const char* device, const char* mount_point, const char* fs_type, const char* fs_options);
+
 int num_volumes;
 Volume* device_volumes;
 
@@ -148,19 +151,22 @@ Volume* volume_for_path(const char* path) {
 int try_mount(const char* device, const char* mount_point, const char* fs_type, const char* fs_options) {
     if (device == NULL || mount_point == NULL || fs_type == NULL)
         return -1;
+
     int ret = 0;
-    if (fs_options == NULL) {
-        ret = mount(device, mount_point, fs_type,
-                       MS_NOATIME | MS_NODEV | MS_NODIRATIME, "");
+    if (!multi_mount(device, mount_point, fs_type, fs_options)) {
+        if (fs_options == NULL) {
+            ret = mount(device, mount_point, fs_type,
+                           MS_NOATIME | MS_NODEV | MS_NODIRATIME, "");
+        }
+        else {
+            char mount_cmd[PATH_MAX];
+            sprintf(mount_cmd, "mount -t %s -o %s %s %s", fs_type, fs_options, device, mount_point);
+            ret = __system(mount_cmd);
+        }
+        if (ret == 0)
+            return 0;
+        LOGW("failed to mount %s (%s)\n", device, strerror(errno));
     }
-    else {
-        char mount_cmd[PATH_MAX];
-        sprintf(mount_cmd, "mount -t %s -o%s %s %s", fs_type, fs_options, device, mount_point);
-        ret = __system(mount_cmd);
-    }
-    if (ret == 0)
-        return 0;
-    LOGW("failed to mount %s (%s)\n", device, strerror(errno));
     return ret;
 }
 
