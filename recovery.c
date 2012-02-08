@@ -833,39 +833,42 @@ main(int argc, char **argv) {
             return reboot_main(argc, argv);
 //#ifdef BOARD_RECOVERY_HANDLES_MOUNT
 #if 1
-//      if (strstr(argv[0], "mount") && argc == 2 && !strstr(argv[0], "umount"))
-        if (strstr(argv[0], "mount") && !strstr(argv[0], "umount"))
-        {
-            int i, chg_system = 0, chg_data = 0;
-            if (argc > 2) {
-                for (i = 2; i < argc; i++) {
-                    if (strcmp(argv[i], "/system")) {
-                        chg_system = 0;
-                        break;
-                    } else if (strcmp(argv[i], "/data")) {
-                        chg_data = 0;
+        if (strstr(argv[0], "umount")) {
+            if (argc > 1) {
+                int i, chg_data = 0;
+                for (i = 1; i < argc; i++) {
+                    if (strcmp(argv[i], "/data") == 0) {
+                        chg_data = 1;
                         break;
                     }
                 }
+                if (chg_data) {
+                    return __system("umount /data_dev");
+                }
             }
-            if (chg_system) {
-                const int tmp_argc = 2;
-                const char** tmp_argv = { "mount", "/system" };
-                return busybox_driver(tmp_argc, tmp_argv);
-            } else if (chg_data) {
-                const int tmp_argc = 2;
-                const char** tmp_argv = { "mount", "/xdata" };
-                return busybox_driver(tmp_argc, tmp_argv);
-            } else {
-                //load_volume_table();
-                //return ensure_path_mounted(argv[1]);
-                return busybox_driver(argc, argv);
+        }
+        if (strstr(argv[0], "mount") && !strstr(argv[0], "umount")) {
+            if (argc > 1) {
+                int i, chg_system = 0, chg_data = 0;
+                for (i = 1; i < argc; i++) {
+                    if (strcmp(argv[i], "/system") == 0) {
+                        chg_system = (argc != 2) ? 1 : 0;
+                        break;
+                    } else if (strcmp(argv[i], "/data") == 0) {
+                        chg_data = 1;
+                        break;
+                    }
+                }
+                if (chg_system) {
+                    return __system("mount /system");
+                } else if (chg_data) {
+                    return __system("mount /data_dev");
+                }
             }
         }
 #endif
-        if (strstr(argv[0], "poweroff")){
+        if (strstr(argv[0], "poweroff"))
             return reboot_main(argc, argv);
-        }
         if (strstr(argv[0], "setprop"))
             return setprop_main(argc, argv);
 
@@ -886,10 +889,19 @@ main(int argc, char **argv) {
     printf("Starting recovery on %s", ctime(&start));
 
     char romId[4] = { 0 };
-    FILE* f = fopen("/mbs/stat/bootrom", "rb");
-    fread(&romId, 1, 4, f);
-    fclose(f);
+    FILE* fp = fopen("/mbs/stat/bootrom", "rb");
+    fread(&romId, 1, 4, fp);
+    fclose(fp);
     sprintf(TARGET_ROM, "TARGET ROM%s", romId);
+
+    static char sysDevice[PATH_MAX] = { 0 };
+    fp = fopen("/mbs/stat/system_device", "rb");
+    fseek(fp, 0, SEEK_END);
+    size_t length = ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+    fread(sysDevice, 1, length, fp);
+    fclose(fp);
+    setenv("SYSTEM_DEVICE", sysDevice, 1);
 
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)"\n");

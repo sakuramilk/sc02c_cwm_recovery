@@ -1139,6 +1139,7 @@ void create_fstab()
          write_fstab_root("/boot", file);
     write_fstab_root("/cache", file);
     write_fstab_root("/xdata", file);
+    write_fstab_root("/data_dev", file);
     write_fstab_root("/datadata", file);
     write_fstab_root("/emmc", file);
     write_fstab_root("/system", file);

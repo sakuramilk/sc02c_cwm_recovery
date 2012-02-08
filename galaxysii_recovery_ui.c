@@ -16,9 +16,6 @@
 
 #include <unistd.h>
 #include <linux/input.h>
-#include <sys/mount.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include "recovery_ui.h"
 #include "common.h"
@@ -77,6 +74,8 @@ int device_perform_action(int which) {
 }
 
 int device_wipe_data() {
+    __system("rm -rf /data/*");
+    __system("rm -rf /data/.*");
     return 0;
 }
 
@@ -117,28 +116,4 @@ int fix_userdata(int is_install_apk)
     __system("umount /data");
 
     return 0;
-}
-
-int multi_mount(const char* device, const char* mount_point, const char* fs_type, const char* fs_options)
-{
-    char mount_cmd[PATH_MAX];
-
-    if (strcmp(mount_point, "/system") == 0) {
-        sprintf(mount_cmd, "mount %s", mount_point);
-        return __system(mount_cmd);
-    } else if (strcmp(mount_point, "/data") == 0) {
-        return multi_mount(device, "/xdata", fs_type, fs_options);
-    } else {
-        int ret = 0;
-        if (fs_options == NULL) {
-            ret = mount(device, mount_point, fs_type,
-                           MS_NOATIME | MS_NODEV | MS_NODIRATIME, "");
-        }
-        else {
-            char mount_cmd[PATH_MAX];
-            sprintf(mount_cmd, "mount -t %s -o %s %s %s", fs_type, fs_options, device, mount_point);
-            ret = __system(mount_cmd);
-        }
-        return ret;
-    }
 }

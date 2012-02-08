@@ -137,6 +137,9 @@ void load_volume_table() {
 
 Volume* volume_for_path(const char* path) {
     int i;
+    if (strcmp(path, "/data") == 0) {
+        path = "/data_dev";
+    }
     for (i = 0; i < num_volumes; ++i) {
         Volume* v = device_volumes+i;
         int len = strlen(v->mount_point);
@@ -153,7 +156,7 @@ int try_mount(const char* device, const char* mount_point, const char* fs_type, 
         return -1;
 
     int ret = 0;
-    if (!multi_mount(device, mount_point, fs_type, fs_options)) {
+    if (multi_mount(device, mount_point, fs_type, fs_options) != 0) {
         if (fs_options == NULL) {
             ret = mount(device, mount_point, fs_type,
                            MS_NOATIME | MS_NODEV | MS_NODIRATIME, "");
