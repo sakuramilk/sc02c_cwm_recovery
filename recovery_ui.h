@@ -17,6 +17,12 @@
 #ifndef _RECOVERY_UI_H
 #define _RECOVERY_UI_H
 
+#include "common.h"
+
+// Called before UI library is initialized.  Can change things like
+// how many frames are included in various animations, etc.
+extern void device_ui_init(UIParameters* ui_parameters);
+
 // Called when recovery starts up.  Returns 0.
 extern int device_recovery_start();
 
@@ -59,8 +65,8 @@ extern int device_perform_action(int which);
 // are erased after this returns (whether it returns success or not).
 int device_wipe_data();
 
-// galaxysii factory reset after bootanimation loop fix
-int fix_userdata(int is_install_apk);
+// galaxysii restore pre-install apps
+int restore_preinstall();
 
 #define NO_ACTION           -1
 
@@ -71,20 +77,25 @@ int fix_userdata(int is_install_apk);
 
 #define ITEM_REBOOT          0
 #define ITEM_BOOT_ROM        1
-#define ITEM_APPLY_SDCARD    2
+#define ITEM_APPLY_EXT       2
+#define ITEM_APPLY_SDCARD    2  // historical synonym for ITEM_APPLY_EXT
 #define ITEM_WIPE_DATA       3
 #define ITEM_WIPE_CACHE      4
-#define ITEM_INSTALL_ZIP     5
-#define ITEM_NANDROID        6
-#define ITEM_PARTITION       7
-#define ITEM_ADVANCED        8
-#define ITEM_POWEROFF        9          
+// unused in cwr
+#define ITEM_APPLY_CACHE     5
+#define ITEM_NANDROID        5
+#define ITEM_PARTITION       6
+#define ITEM_ADVANCED        7
+#define ITEM_POWEROFF        8
 
 // Header text to display above the main menu.
 extern char* MENU_HEADERS[];
 
 // Text of menu items.
 extern char* MENU_ITEMS[];
+
+// Loosely track the depth of the current menu
+int ui_menu_level;
 
 int
 get_menu_selection(char** headers, char** items, int menu_only, int initial_selection);

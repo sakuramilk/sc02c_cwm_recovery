@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/reboot.h>
-#include <reboot/reboot.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -26,6 +25,7 @@
 #include "cutils/properties.h"
 #include "firmware.h"
 #include "install.h"
+#include "make_ext4fs.h"
 #include "minui/minui.h"
 #include "minzip/DirUtil.h"
 #include "roots.h"
@@ -42,6 +42,7 @@
 #include <libgen.h>
 #include "mtdutils/mtdutils.h"
 #include "bmlutils/bmlutils.h"
+#include "cutils/android_reboot.h"
 
 
 int signature_check_enabled = 1;
@@ -81,16 +82,16 @@ int install_zip(const char* packagefilepath)
 }
 
 char* INSTALL_MENU_ITEMS[] = {  "choose zip from internal sdcard",
+                                "choose zip from external sdcard",
                                 "apply /sdcard/update.zip",
                                 "toggle signature verification",
                                 "toggle script asserts",
-                                "choose zip from external sdcard",
                                 NULL };
 #define ITEM_CHOOSE_ZIP       0
-#define ITEM_APPLY_SDCARD     1
-#define ITEM_SIG_CHECK        2
-#define ITEM_ASSERTS          3
-#define ITEM_CHOOSE_ZIP_INT   4
+#define ITEM_CHOOSE_ZIP_INT   1
+#define ITEM_APPLY_SDCARD     2
+#define ITEM_SIG_CHECK        3
+#define ITEM_ASSERTS          4
 
 void show_install_update_menu()
 {
@@ -457,6 +458,9 @@ int format_device(const char *device, const char *path, const char *fs_type) {
         LOGE("unknown volume \"%s\"\n", path);
         return -1;
     }
+    if (strstr(path, "/data") == path && volume_for_path("/sdcard") == NULL && is_data_media()) {
+        return format_unknown_device(NULL, path, NULL);
+    }
     if (strcmp(fs_type, "ramdisk") == 0) {
         // you can't format the ramdisk.
         LOGE("can't format_volume \"%s\"", path);
@@ -508,8 +512,13 @@ int format_device(const char *device, const char *path, const char *fs_type) {
     }
 
     if (strcmp(fs_type, "ext4") == 0) {
+        int length = 0;
+        if (strcmp(v->fs_type, "ext4") == 0) {
+            // Our desired filesystem matches the one in fstab, respect v->length
+            length = v->length;
+        }
         reset_ext4fs_info();
-        int result = make_ext4fs(device, NULL, NULL, 0, 0, 0);
+        int result = make_ext4fs(device, length);
         if (result != 0) {
             LOGE("format_volume: make_extf4fs failed on %s\n", device);
             return -1;
@@ -638,7 +647,7 @@ void show_partition_menu()
     string options[255];
 
     if(!device_volumes)
-		return;
+		    return;
 
 		mountable_volumes = 0;
 		formatable_volumes = 0;
@@ -647,25 +656,24 @@ void show_partition_menu()
 		format_menue = malloc(num_volumes * sizeof(FormatMenuEntry));
 
 		for (i = 0; i < num_volumes; ++i) {
-			Volume* v = &device_volumes[i];
-			if(strcmp("ramdisk", v->fs_type) != 0 && strcmp("mtd", v->fs_type) != 0 && strcmp("emmc", v->fs_type) != 0 && strcmp("bml", v->fs_type) != 0)
-			{
-				sprintf(&mount_menue[mountable_volumes].mount, "mount %s", v->mount_point);
-				sprintf(&mount_menue[mountable_volumes].unmount, "unmount %s", v->mount_point);
-				mount_menue[mountable_volumes].v = &device_volumes[i];
-				++mountable_volumes;
-				if (is_safe_to_format(v->mount_point)) {
-					sprintf(&format_menue[formatable_volumes].txt, "format %s", v->mount_point);
-					format_menue[formatable_volumes].v = &device_volumes[i];
-					++formatable_volumes;
-				}
-		    }
-		    else if (strcmp("ramdisk", v->fs_type) != 0 && strcmp("mtd", v->fs_type) == 0 && is_safe_to_format(v->mount_point))
-		    {
-				sprintf(&format_menue[formatable_volumes].txt, "format %s", v->mount_point);
-				format_menue[formatable_volumes].v = &device_volumes[i];
-				++formatable_volumes;
-			}
+  			Volume* v = &device_volumes[i];
+  			if(strcmp("ramdisk", v->fs_type) != 0 && strcmp("mtd", v->fs_type) != 0 && strcmp("emmc", v->fs_type) != 0 && strcmp("bml", v->fs_type) != 0) {
+    				sprintf(&mount_menue[mountable_volumes].mount, "mount %s", v->mount_point);
+    				sprintf(&mount_menue[mountable_volumes].unmount, "unmount %s", v->mount_point);
+    				mount_menue[mountable_volumes].v = &device_volumes[i];
+    				++mountable_volumes;
+    				if (is_safe_to_format(v->mount_point)) {
+      					sprintf(&format_menue[formatable_volumes].txt, "format %s", v->mount_point);
+      					format_menue[formatable_volumes].v = &device_volumes[i];
+      					++formatable_volumes;
+    				}
+  		  }
+  		  else if (strcmp("ramdisk", v->fs_type) != 0 && strcmp("mtd", v->fs_type) == 0 && is_safe_to_format(v->mount_point))
+  		  {
+    				sprintf(&format_menue[formatable_volumes].txt, "format %s", v->mount_point);
+    				format_menue[formatable_volumes].v = &device_volumes[i];
+    				++formatable_volumes;
+  			}
 		}
 
 
@@ -675,37 +683,39 @@ void show_partition_menu()
 
     for (;;)
     {
+    		for (i = 0; i < mountable_volumes; i++)
+    		{
+    			MountMenuEntry* e = &mount_menue[i];
+    			Volume* v = e->v;
+    			if(is_path_mounted(v->mount_point))
+    				options[i] = e->unmount;
+    			else
+    				options[i] = e->mount;
+    		}
 
-		for (i = 0; i < mountable_volumes; i++)
-		{
-			MountMenuEntry* e = &mount_menue[i];
-			Volume* v = e->v;
-			if(is_path_mounted(v->mount_point))
-				options[i] = e->unmount;
-			else
-				options[i] = e->mount;
-		}
+    		for (i = 0; i < formatable_volumes; i++)
+    		{
+    			FormatMenuEntry* e = &format_menue[i];
 
-		for (i = 0; i < formatable_volumes; i++)
-		{
-			FormatMenuEntry* e = &format_menue[i];
+    			options[mountable_volumes+i] = e->txt;
+    		}
 
-			options[mountable_volumes+i] = e->txt;
-		}
-
-        options[mountable_volumes+formatable_volumes] = "mount USB storage";
-        options[mountable_volumes+formatable_volumes + 1] = NULL;
+        if (!is_data_media()) {
+          options[mountable_volumes + formatable_volumes] = "mount USB storage";
+          options[mountable_volumes + formatable_volumes + 1] = NULL;
+        }
+        else {
+          options[mountable_volumes + formatable_volumes] = NULL;
+        }
 
         int chosen_item = get_menu_selection(headers, &options, 0, 0);
         if (chosen_item == GO_BACK)
             break;
-        if (chosen_item == (mountable_volumes+formatable_volumes))
-        {
+        if (chosen_item == (mountable_volumes+formatable_volumes)) {
             show_mount_usb_storage_menu();
         }
-        else if (chosen_item < mountable_volumes)
-        {
-			MountMenuEntry* e = &mount_menue[chosen_item];
+        else if (chosen_item < mountable_volumes) {
+			      MountMenuEntry* e = &mount_menue[chosen_item];
             Volume* v = e->v;
 
             if (is_path_mounted(v->mount_point))
@@ -739,7 +749,6 @@ void show_partition_menu()
 
     free(mount_menue);
     free(format_menue);
-
 }
 
 void show_nandroid_advanced_restore_menu(const char* path)
@@ -839,7 +848,7 @@ void show_nandroid_menu()
                             NULL
     };
 
-    if (volume_for_path("/emmc") == NULL)
+    if (volume_for_path("/emmc") == NULL || volume_for_path("/sdcard") == NULL && is_data_media())
         list[3] = NULL;
 
     int chosen_item = get_menu_selection(headers, list, 0, 0);
@@ -927,12 +936,10 @@ void show_advanced_menu()
                             "Report Error",
                             "Key Test",
                             "Show log",
-#ifndef BOARD_HAS_SMALL_RECOVERY
                             "Internal Partition SD Card",
                             "Fix Permissions",
 #ifdef BOARD_HAS_SDCARD_INTERNAL
                             "External Partition Internal SD Card",
-#endif
 #endif
                             NULL
     };
@@ -946,12 +953,12 @@ void show_advanced_menu()
         {
             case 0:
             {
-                reboot_wrapper("recovery");
+                android_reboot(ANDROID_RB_RESTART2, 0, "recovery");
                 break;
             }
             case 1:
             {
-                reboot_wrapper("download");
+                android_reboot(ANDROID_RB_RESTART2, 0, "download");
                 break;
             }
             case 2:
@@ -1118,11 +1125,7 @@ void write_fstab_root(char *path, FILE *file)
     fprintf(file, "%s ", device);
     fprintf(file, "%s ", path);
     // special case rfs cause auto will mount it as vfat on samsung.
-    fprintf(file, "%s rw", vol->fs_type2 != NULL && strcmp(vol->fs_type, "rfs") != 0 ? "auto" : vol->fs_type);
-    if (vol->fs_options)
-        fprintf(file, " %s\n", vol->fs_options);
-    else
-        fprintf(file, "\n");
+    fprintf(file, "%s rw\n", vol->fs_type2 != NULL && strcmp(vol->fs_type, "rfs") != 0 ? "auto" : vol->fs_type);
 }
 
 void create_fstab()
