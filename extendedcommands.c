@@ -48,7 +48,9 @@
 int signature_check_enabled = 1;
 int script_assert_enabled = 1;
 static const char *SDCARD_UPDATE_FILE = "/sdcard/update.zip";
+#ifdef RECOVERY_MULTI_BOOT
 extern char TARGET_ROM[];
+#endif
 
 void
 toggle_signature_check()
@@ -96,7 +98,9 @@ char* INSTALL_MENU_ITEMS[] = {  "choose zip from internal sdcard",
 void show_install_update_menu()
 {
     static char* headers[] = {  "Apply update from .zip file on SD card",
+#ifdef RECOVERY_MULTI_BOOT
                                 TARGET_ROM,
+#endif
                                 "",
                                 NULL
     };
@@ -323,7 +327,9 @@ void show_choose_zip_menu(const char *mount_point)
     }
 
     static char* headers[] = {  "Choose a zip to apply",
+#ifdef RECOVERY_MULTI_BOOT
                                 TARGET_ROM,
+#endif
                                 "",
                                 NULL
     };
@@ -346,7 +352,9 @@ void show_nandroid_restore_menu(const char* path)
     }
 
     static char* headers[] = {  "Choose an image to restore",
+#ifdef RECOVERY_MULTI_BOOT
                                 TARGET_ROM,
+#endif
                                 "",
                                 NULL
     };
@@ -415,7 +423,11 @@ int confirm_selection(const char* title, const char* confirm)
     if (0 == stat("/sdcard/clockworkmod/.no_confirm", &info))
         return 1;
 
-    char* confirm_headers[]  = {  title, "  THIS CAN NOT BE UNDONE.", TARGET_ROM, "", NULL };
+    char* confirm_headers[]  = {  title, "  THIS CAN NOT BE UNDONE.",
+#ifdef RECOVERY_MULTI_BOOT
+                                  TARGET_ROM,
+#endif
+                                  "", NULL };
 	if (0 == stat("/sdcard/clockworkmod/.one_confirm", &info)) {
 		char* items[] = { "No",
 						confirm, //" Yes -- wipe partition",   // [1]
@@ -759,7 +771,9 @@ void show_nandroid_advanced_restore_menu(const char* path)
     }
 
     static char* advancedheaders[] = {  "Choose an image to restore",
+#ifdef RECOVERY_MULTI_BOOT
                                 TARGET_ROM,
+#endif
                                 "",
                                 "Choose an image to restore",
                                 "first. The next menu will",
@@ -834,7 +848,9 @@ void show_nandroid_advanced_restore_menu(const char* path)
 void show_nandroid_menu()
 {
     static char* headers[] = {  "Nandroid",
+#ifdef RECOVERY_MULTI_BOOT
                                 TARGET_ROM,
+#endif
                                 "",
                                 NULL
     };
@@ -924,7 +940,9 @@ void wipe_battery_stats()
 void show_advanced_menu()
 {
     static char* headers[] = {  "Advanced and Debugging Menu",
+#ifdef RECOVERY_MULTI_BOOT
                                 TARGET_ROM,
+#endif
                                 "",
                                 NULL
     };
@@ -1141,8 +1159,12 @@ void create_fstab()
     if (NULL != vol && strcmp(vol->fs_type, "mtd") != 0 && strcmp(vol->fs_type, "emmc") != 0 && strcmp(vol->fs_type, "bml") != 0)
          write_fstab_root("/boot", file);
     write_fstab_root("/cache", file);
+#ifdef RECOVERY_MULTI_BOOT
     write_fstab_root("/xdata", file);
     write_fstab_root("/data_dev", file);
+#else
+    write_fstab_root("/data", file);
+#endif
     write_fstab_root("/datadata", file);
     write_fstab_root("/emmc", file);
     write_fstab_root("/system", file);

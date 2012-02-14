@@ -23,7 +23,9 @@
 char* MENU_HEADERS[] = { NULL };
 
 char* MENU_ITEMS[] = { "reboot system now",
+#ifdef RECOVERY_MULTI_BOOT
                        "select boot rom",
+#endif
                        "install zip from sdcard",
                        "wipe data/factory reset",
                        "wipe cache partition",
@@ -63,4 +65,5 @@ int restore_preinstall() {
     __system("chmod 644 /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
     __system("chown system.system /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
     __system("umount /preload");
+    return 0;
 }

@@ -168,9 +168,11 @@ void load_volume_table() {
 
 Volume* volume_for_path(const char* path) {
     int i;
+#ifdef RECOVERY_MULTI_BOOT
     if (strcmp(path, "/data") == 0) {
         path = "/data_dev";
     }
+#endif
     for (i = 0; i < num_volumes; ++i) {
         Volume* v = device_volumes+i;
         int len = strlen(v->mount_point);

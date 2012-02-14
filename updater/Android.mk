@@ -6,7 +6,7 @@ updater_src_files := \
 	install.c \
 	../mounts.c \
 	updater.c \
-        ../recovery_multi.c
+	../recovery_multi.c
 
 #
 # Build a statically-linked binary to include in OTA packages

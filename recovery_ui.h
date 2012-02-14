@@ -75,6 +75,7 @@ int restore_preinstall();
 #define SELECT_ITEM         -4
 #define GO_BACK             -5
 
+#ifdef RECOVERY_MULTI_BOOT
 #define ITEM_REBOOT          0
 #define ITEM_BOOT_ROM        1
 #define ITEM_APPLY_EXT       2
@@ -87,6 +88,19 @@ int restore_preinstall();
 #define ITEM_PARTITION       6
 #define ITEM_ADVANCED        7
 #define ITEM_POWEROFF        8
+#else
+#define ITEM_REBOOT          0
+#define ITEM_APPLY_EXT       1
+#define ITEM_APPLY_SDCARD    1  // historical synonym for ITEM_APPLY_EXT
+#define ITEM_WIPE_DATA       2
+#define ITEM_WIPE_CACHE      3
+// unused in cwr
+#define ITEM_APPLY_CACHE     4
+#define ITEM_NANDROID        4
+#define ITEM_PARTITION       5
+#define ITEM_ADVANCED        6
+#define ITEM_POWEROFF        7
+#endif // RECOVERY_MULTI_BOOT
 
 // Header text to display above the main menu.
 extern char* MENU_HEADERS[];

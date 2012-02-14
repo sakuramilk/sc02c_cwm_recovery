@@ -22,6 +22,7 @@
 
 int multi_mount(const char* device, const char* mount_point, const char* fs_type, const char* fs_options)
 {
+#ifdef RECOVERY_MULTI_BOOT
     char mount_cmd[PATH_MAX];
 
     if (strcmp(mount_point, "/system") == 0) {
@@ -43,9 +44,13 @@ int multi_mount(const char* device, const char* mount_point, const char* fs_type
         }
         return ret;
     }
+#else
+    return -1;
+#endif
 }
 
 int multi_format(const char* location) {
+#ifdef RECOVERY_MULTI_BOOT
     printf("multi_format location=%s\n", location);
     if (strcmp(location, "/dev/block/mmcblk0p9") == 0) {
         char* value = getenv("SYSTEM_DEVICE");
@@ -55,6 +60,7 @@ int multi_format(const char* location) {
             return __system(cmd);
         }
     }
+#endif
     return -1;
 }
 
