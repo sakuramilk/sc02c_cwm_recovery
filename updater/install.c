@@ -25,6 +25,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <time.h>
 
 #include "cutils/misc.h"
 #include "cutils/properties.h"
@@ -709,6 +711,12 @@ Value* WriteRawImageFn(const char* name, State* state, int argc, Expr* argv[]) {
     if (strlen(filename) == 0) {
         ErrorAbort(state, "file argument to %s can't be empty", name);
         goto done;
+    }
+    {
+        char* value = getenv("KERNEL_FLASH");
+        if (value != NULL && value[0] == '1' && strcmp(partition, "/dev/block/mmcblk0p5") == 0) {
+            goto done;
+        }
     }
 
     if (0 == restore_raw_partition(NULL, partition, filename))

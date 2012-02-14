@@ -905,6 +905,20 @@ main(int argc, char **argv) {
 
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)"\n");
+
+    {
+        char msg[100] = { 0 };
+        FILE* fp = fopen("/mbs/stat/mbs.err", "rb");
+        if (fp) {
+            fseek(fp, 0, SEEK_END);
+            size_t length = ftell(fp);
+            fseek(fp, 0L, SEEK_SET);
+            fread(msg, 1, length, fp);
+            fclose(fp);
+            ui_print("boot err: %s\n", msg);
+        }
+    }
+
     load_volume_table();
     process_volumes();
     LOGI("Processing arguments.\n");

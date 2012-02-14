@@ -46,6 +46,8 @@
 
 int signature_check_enabled = 1;
 int script_assert_enabled = 1;
+int script_kernel_flash = 0;
+int script_updater_binary = 1;
 static const char *SDCARD_UPDATE_FILE = "/sdcard/update.zip";
 extern char TARGET_ROM[];
 
@@ -61,6 +63,19 @@ void toggle_script_asserts()
     script_assert_enabled = !script_assert_enabled;
     ui_print("Script Asserts: %s\n", script_assert_enabled ? "Enabled" : "Disabled");
 }
+
+void toggle_kernel_flash()
+{
+    script_kernel_flash = !script_kernel_flash;
+    ui_print("Kernel Flash: %s\n", script_kernel_flash ? "Enabled" : "Disabled");
+}
+
+void toggle_updater_binary()
+{
+    script_updater_binary = !script_updater_binary;
+    ui_print("Updater Binary %s\n", script_updater_binary ? "Internal" : "External");
+}
+
 
 int install_zip(const char* packagefilepath)
 {
@@ -81,16 +96,20 @@ int install_zip(const char* packagefilepath)
 }
 
 char* INSTALL_MENU_ITEMS[] = {  "choose zip from internal sdcard",
+                                "choose zip from external sdcard",
                                 "apply /sdcard/update.zip",
                                 "toggle signature verification",
                                 "toggle script asserts",
-                                "choose zip from external sdcard",
+                                "toggle kernel flash",
+                                "toggle updater binary",
                                 NULL };
 #define ITEM_CHOOSE_ZIP       0
-#define ITEM_APPLY_SDCARD     1
-#define ITEM_SIG_CHECK        2
-#define ITEM_ASSERTS          3
-#define ITEM_CHOOSE_ZIP_INT   4
+#define ITEM_CHOOSE_ZIP_INT   1
+#define ITEM_APPLY_SDCARD     2
+#define ITEM_SIG_CHECK        3
+#define ITEM_ASSERTS          4
+#define ITEM_KERNEL_FLASH     5
+#define ITEM_UPDATER_BINARY   6
 
 void show_install_update_menu()
 {
@@ -120,6 +139,12 @@ void show_install_update_menu()
                     install_zip(SDCARD_UPDATE_FILE);
                 break;
             }
+            case ITEM_KERNEL_FLASH:
+                toggle_kernel_flash();
+                break;
+            case ITEM_UPDATER_BINARY:
+                toggle_updater_binary();
+                break;
             case ITEM_CHOOSE_ZIP:
                 show_choose_zip_menu("/sdcard/");
                 break;

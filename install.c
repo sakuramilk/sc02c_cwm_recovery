@@ -36,7 +36,8 @@
 #include "firmware.h"
 
 #include "extendedcommands.h"
-
+extern int script_kernel_flash;
+extern int script_updater_binary;
 
 #define ASSUMED_UPDATE_BINARY_NAME  "META-INF/com/google/android/update-binary"
 #define ASSUMED_UPDATE_SCRIPT_NAME  "META-INF/com/google/android/update-script"
@@ -108,7 +109,44 @@ handle_firmware_update(char* type, char* filename, ZipArchive* zip) {
 // If the package contains an update binary, extract it and run it.
 static int
 try_update_binary(const char *path, ZipArchive *zip) {
-    const char* binary = "/mbs/recovery/updater";
+    char* binary;
+    if (script_updater_binary) {
+        binary = "/mbs/recovery/updater";
+    } else {
+        const ZipEntry* binary_entry =
+        mzFindZipEntry(zip, ASSUMED_UPDATE_BINARY_NAME);
+        if (binary_entry == NULL) {
+            const ZipEntry* update_script_entry =
+                    mzFindZipEntry(zip, ASSUMED_UPDATE_SCRIPT_NAME);
+            if (update_script_entry != NULL) {
+                ui_print("Amend scripting (update-script) is no longer supported.\n");
+                ui_print("Amend scripting was deprecated by Google in Android 1.5.\n");
+                ui_print("It was necessary to remove it when upgrading to the ClockworkMod 3.0 Gingerbread based recovery.\n");
+                ui_print("Please switch to Edify scripting (updater-script and update-binary) to create working update zip packages.\n");
+                return INSTALL_UPDATE_BINARY_MISSING;
+            }
+
+            mzCloseZipArchive(zip);
+            return INSTALL_UPDATE_BINARY_MISSING;
+        }
+
+        binary = "/tmp/update_binary";
+        unlink(binary);
+        int fd = creat(binary, 0755);
+        if (fd < 0) {
+            mzCloseZipArchive(zip);
+            LOGE("Can't make %s\n", binary);
+            return 1;
+        }
+        bool ok = mzExtractZipEntryToFile(zip, binary_entry, fd);
+        close(fd);
+
+        if (!ok) {
+            LOGE("Can't copy %s\n", ASSUMED_UPDATE_BINARY_NAME);
+            mzCloseZipArchive(zip);
+            return 1;
+        }
+    }
 
     int pipefd[2];
     pipe(pipefd);
@@ -157,6 +195,7 @@ try_update_binary(const char *path, ZipArchive *zip) {
 
     pid_t pid = fork();
     if (pid == 0) {
+        setenv("KERNEL_FLASH", script_kernel_flash ? "1" : "0", 1);
         setenv("UPDATE_PACKAGE", path, 1);
         close(pipefd[0]);
         execv(binary, args);
