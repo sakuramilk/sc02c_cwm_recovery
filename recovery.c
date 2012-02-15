@@ -146,7 +146,9 @@ static const char *SIDELOAD_TEMP_DIR = "/tmp/sideload";
 
 static const int MAX_ARG_LENGTH = 4096;
 static const int MAX_ARGS = 100;
+#ifdef RECOVERY_MULTI_BOOT
 char TARGET_ROM[100];
+#endif
 
 // open a given path, mounting partitions as necessary
 static FILE*
@@ -429,7 +431,9 @@ copy_sideloaded_package(const char* original_path) {
 static char**
 prepend_title(char** headers) {
     char* title[] = { EXPAND(RECOVERY_VERSION),
+#ifdef RECOVERY_MULTI_BOOT
                       TARGET_ROM,
+#endif
                       "",
                       NULL };
 
@@ -680,11 +684,14 @@ wipe_data(int confirm) {
     erase_volume("/sd-ext");
 #endif
     erase_volume("/sdcard/.android_secure");
-    ui_print("\n-- fix data partision...\n");
-    fix_userdata(chosen_item == 5 ? 1 : 0);
+    if (chosen_item == 5) {
+        ui_print("\n-- restore pre-install apk...\n");
+        restore_preinstall();
+    }
     ui_print("Data wipe complete.\n");
 }
 
+#ifdef RECOVERY_MULTI_BOOT
 static void
 select_boot_rom(int confirm) {
     int chosen_item = 0;
@@ -725,6 +732,7 @@ select_boot_rom(int confirm) {
     ui_print("\n-- Select ROM%d...\n", chosen_item);
     ensure_path_unmounted("/xdata");
 }
+#endif
 
 static void
 prompt_and_wait() {
@@ -750,10 +758,12 @@ prompt_and_wait() {
                 poweroff=0;
                 return;
 
+#ifdef RECOVERY_MULTI_BOOT
             case ITEM_BOOT_ROM:
                 select_boot_rom(ui_text_visible());
                 if (!ui_text_visible()) return;
                 break;
+#endif
 
             case ITEM_WIPE_DATA:
                 wipe_data(ui_text_visible());
@@ -832,7 +842,7 @@ main(int argc, char **argv) {
         if (strstr(argv[0], "reboot"))
             return reboot_main(argc, argv);
 //#ifdef BOARD_RECOVERY_HANDLES_MOUNT
-#if 1
+#ifdef RECOVERY_MULTI_BOOT
         if (strstr(argv[0], "umount")) {
             if (argc > 1) {
                 int i, chg_data = 0;
@@ -888,6 +898,7 @@ main(int argc, char **argv) {
     freopen(TEMPORARY_LOG_FILE, "a", stderr); setbuf(stderr, NULL);
     printf("Starting recovery on %s", ctime(&start));
 
+#ifdef RECOVERY_MULTI_BOOT
     char romId[4] = { 0 };
     FILE* fp = fopen("/mbs/stat/bootrom", "rb");
     fread(&romId, 1, 4, fp);
@@ -902,10 +913,12 @@ main(int argc, char **argv) {
     fread(sysDevice, 1, length, fp);
     fclose(fp);
     setenv("SYSTEM_DEVICE", sysDevice, 1);
+#endif
 
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)"\n");
 
+#ifdef RECOVERY_MULTI_BOOT
     {
         char msg[100] = { 0 };
         FILE* fp = fopen("/mbs/stat/mbs.err", "rb");
@@ -918,6 +931,7 @@ main(int argc, char **argv) {
             ui_print("boot err: %s\n", msg);
         }
     }
+#endif
 
     load_volume_table();
     process_volumes();
@@ -1027,20 +1041,13 @@ main(int argc, char **argv) {
                 ui_print("Successfully updated Encrypted FS.\n");
                 status = INSTALL_SUCCESS;
             }
-            LOGI("call fix_userdata(true)");
-            fix_userdata(true);
         }
     } else if (update_package != NULL) {
         status = install_package(update_package);
         if (status != INSTALL_SUCCESS) ui_print("Installation aborted.\n");
     } else if (wipe_data) {
         if (device_wipe_data()) status = INSTALL_ERROR;
-        if (erase_volume("/data")) {
-            status = INSTALL_ERROR;
-        } else {
-            LOGI("call fix_userdata(true)");
-            fix_userdata(true);
-        }
+        if (erase_volume("/data")) status = INSTALL_ERROR;
         if (wipe_cache && erase_volume("/cache")) status = INSTALL_ERROR;
         if (status != INSTALL_SUCCESS) ui_print("Data wipe failed.\n");
     } else if (wipe_cache) {

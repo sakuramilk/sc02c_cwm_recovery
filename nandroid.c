@@ -277,7 +277,11 @@ int nandroid_backup(const char* backup_path)
     if (0 != (ret = nandroid_backup_partition(backup_path, "/system")))
         return ret;
 
+#ifdef RECOVERY_MULTI_BOOT
     if (0 != (ret = nandroid_backup_partition_extended(backup_path, "/data", 0)))
+#else
+    if (0 != (ret = nandroid_backup_partition(backup_path, "/data")))
+#endif
         return ret;
 
     if (has_datadata()) {
@@ -568,7 +572,11 @@ int nandroid_restore(const char* backup_path, int restore_boot, int restore_syst
     if (restore_system && 0 != (ret = nandroid_restore_partition(backup_path, "/system")))
         return ret;
 
+#ifdef RECOVERY_MULTI_BOOT
+    if (restore_data && 0 != (ret = nandroid_restore_partition(backup_path, "/data")))
+#else
     if (restore_data && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/data", 0)))
+#endif
         return ret;
         
     if (has_datadata()) {

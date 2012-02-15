@@ -174,7 +174,11 @@ static void draw_text_line(int row, const char* t) {
 //#define MENU_TEXT_COLOR 49, 160, 255, 255 // v4 galaxys2
 //#define MENU_TEXT_COLOR 0, 191, 255, 255 // v5 original
 //#define MENU_TEXT_COLOR 114, 200, 148, 255 // v5 galaxys2
+#ifdef RECOVERY_MULTI_BOOT
 #define MENU_TEXT_COLOR 219, 168, 0, 255 // v5 galaxys2 multi
+#else
+//#define MENU_TEXT_COLOR 114, 200, 148, 255 // v5 galaxys2
+#endif
 #define NORMAL_TEXT_COLOR 200, 200, 200, 255
 #define HEADER_TEXT_COLOR NORMAL_TEXT_COLOR
 

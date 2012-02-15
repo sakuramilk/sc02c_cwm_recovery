@@ -24,7 +24,9 @@
 char* MENU_HEADERS[] = { NULL };
 
 char* MENU_ITEMS[] = { "reboot system now",
+#ifdef RECOVERY_MULTI_BOOT
                         "select boot rom",
+#endif
                        "apply update from sdcard",
                        "wipe data/factory reset",
                        "wipe cache partition",
@@ -79,13 +81,14 @@ int device_wipe_data() {
     return 0;
 }
 
-int fix_userdata(int is_install_apk)
+int restore_preinstall()
 {
+#ifndef RECOVERY_MULTI_BOOT
     __system("mount -t ext4 /dev/block/mmcblk0p10 /data");
-    usleep(3000);
+#if 0
     mkdir("/data/system", 0775);
     mkdir("/data/system/dropbox", 0700);
-    mkdir("/data/system/registered_services", 0771);
+   mkdir("/data/system/registered_services", 0771);
     mkdir("/data/system/sync", 0700);
     mkdir("/data/system/throttle", 0700);
     mkdir("/data/system/usagestats", 0700);
@@ -96,24 +99,22 @@ int fix_userdata(int is_install_apk)
     chown("/data/system/sync", 1000, 1000);
     chown("/data/system/throttle", 1000, 1000);
     chown("/data/system/usagestats", 1000, 1000);
-    
-    if (is_install_apk)
-    {
-        __system("mount -t ext4 /dev/block/mmcblk0p12 /preload");
-        usleep(3000);
-        mkdir("/data/app", 0771);
-        chown("/data/app", 1000, 1000);	
-        __system("cp /preload/app/* /data/app/");
-        __system("chmod 644 /data/app/*");
-        __system("chown system.system /data/app/*");
+#endif
 
-        __system("cp /preload/pre_video/Color_SuperAMOLEDPlus-30mb.mp4 /sdcard/");
-		__system("chmod 644 /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
-        __system("chown system.system /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
-        __system("umount /preload");
-    }
+    _system("mount -t ext4 /dev/block/mmcblk0p12 /preload");
+    usleep(3000);
+    mkdir("/data/app", 0771);
+    chown("/data/app", 1000, 1000);	
+    __system("cp /preload/app/* /data/app/");
+    __system("chmod 644 /data/app/*");
+    __system("chown system.system /data/app/*");
+    
+    __system("cp /preload/pre_video/Color_SuperAMOLEDPlus-30mb.mp4 /sdcard/");
+	__system("chmod 644 /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
+    __system("chown system.system /sdcard/Color_SuperAMOLEDPlus-30mb.mp4");
+    __system("umount /preload");
 
     __system("umount /data");
-
+#endif
     return 0;
 }
