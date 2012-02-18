@@ -573,9 +573,9 @@ int nandroid_restore(const char* backup_path, int restore_boot, int restore_syst
         return ret;
 
 #ifdef RECOVERY_MULTI_BOOT
-    if (restore_data && 0 != (ret = nandroid_restore_partition(backup_path, "/data")))
-#else
     if (restore_data && 0 != (ret = nandroid_restore_partition_extended(backup_path, "/data", 0)))
+#else
+    if (restore_data && 0 != (ret = nandroid_restore_partition(backup_path, "/data")))
 #endif
         return ret;
         

@@ -456,7 +456,7 @@ int confirm_selection(const char* title, const char* confirm)
 #ifdef RECOVERY_MULTI_BOOT
                                   TARGET_ROM,
 #endif
-                                   "", NULL };
+                                  "", NULL };
 	if (0 == stat("/sdcard/clockworkmod/.one_confirm", &info)) {
 		char* items[] = { "No",
 						confirm, //" Yes -- wipe partition",   // [1]
@@ -1058,6 +1058,7 @@ void show_advanced_menu()
                 ui_printlogtail(12);
                 break;
             }
+#ifndef BOARD_HAS_SMALL_RECOVERY
             case 7:
             {
                 static char* ext_sizes[] = { "128M",
@@ -1110,6 +1111,7 @@ void show_advanced_menu()
                 ui_print("Done!\n");
                 break;
             }
+#ifdef BOARD_HAS_SDCARD_INTERNAL
             case 9:
             {
                 static char* ext_sizes[] = { "128M",
@@ -1153,6 +1155,8 @@ void show_advanced_menu()
                     ui_print("An error occured while partitioning your Internal SD Card. Please see /tmp/recovery.log for more details.\n");
                 break;
             }
+#endif // BOARD_HAS_SDCARD_INTERNAL
+#endif // BOARD_HAS_SMALL_RECOVERY
         }
     }
 }

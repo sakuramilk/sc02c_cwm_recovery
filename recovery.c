@@ -659,7 +659,7 @@ wipe_data(int confirm) {
                           " No",
                           " No",
                           " No",
-                          " Yes -- delete all user data, and repair",	// [5]
+                          " Yes -- delete all user data, and pre-install",	// [5]
                           " No",
                           " Yes -- delete all user data",   // [7]
                           " No",
@@ -732,7 +732,7 @@ select_boot_rom(int confirm) {
     ui_print("\n-- Select ROM%d...\n", chosen_item);
     ensure_path_unmounted("/xdata");
 }
-#endif
+#endif // RECOVERY_MULTI_BOOT
 
 static void
 prompt_and_wait() {
