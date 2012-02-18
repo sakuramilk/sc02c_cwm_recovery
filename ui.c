@@ -666,7 +666,7 @@ int ui_start_menu(char** headers, char** items, int initial_selection) {
             menu[i][MENU_MAX_COLS-1] = '\0';
         }
 
-        if (gShowBackButton && ui_menu_level > 0) {
+        if (gShowBackButton) {
             strcpy(menu[i], " - +++++Go Back+++++");
             ++i;
         }
@@ -680,7 +680,7 @@ int ui_start_menu(char** headers, char** items, int initial_selection) {
         update_screen_locked();
     }
     pthread_mutex_unlock(&gUpdateMutex);
-    if (gShowBackButton && ui_menu_level > 0) {
+    if (gShowBackButton) {
         return menu_items - 1;
     }
     return menu_items;

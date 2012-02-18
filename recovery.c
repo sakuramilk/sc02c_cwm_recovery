@@ -440,8 +440,7 @@ get_menu_selection(char** headers, char** items, int menu_only,
     // throw away keys pressed previously, so user doesn't
     // accidentally trigger menu items.
     ui_clear_key_queue();
-    
-    ++ui_menu_level;
+
     int item_count = ui_start_menu(headers, items, initial_selection);
     int selected = initial_selection;
     int chosen_item = -1;
@@ -456,16 +455,6 @@ get_menu_selection(char** headers, char** items, int menu_only,
         ui_clear_key_queue();
         int key = ui_wait_key();
         int visible = ui_text_visible();
-
-        if (key == -1) {   // ui_wait_key() timed out
-            if (ui_text_ever_visible()) {
-                continue;
-            } else {
-                LOGI("timed out waiting for key input; rebooting.\n");
-                ui_end_menu();
-                return ITEM_REBOOT;
-            }
-        }
 
         int action = device_handle_key(key, visible);
 
@@ -484,8 +473,7 @@ get_menu_selection(char** headers, char** items, int menu_only,
                 case SELECT_ITEM:
                     chosen_item = selected;
                     if (ui_get_showing_back_button()) {
-                        if (chosen_item == item_count-1) {
-                            --ui_menu_level;
+                        if (chosen_item == item_count) {
                             chosen_item = GO_BACK;
                         }
                     }
@@ -493,27 +481,13 @@ get_menu_selection(char** headers, char** items, int menu_only,
                 case NO_ACTION:
                     break;
                 case GO_BACK:
-                    --ui_menu_level;
-                    chosen_item = GO_BACK;
+                    if (ui_get_showing_back_button()) {
+                        chosen_item = GO_BACK;
+                    }
                     break;
             }
         } else if (!menu_only) {
             chosen_item = action;
-        }
-
-        if (abs(selected - old_selected) > 1) {
-            wrap_count++;
-            if (wrap_count == 3) {
-                wrap_count = 0;
-                if (ui_get_showing_back_button()) {
-                    ui_print("Back menu button disabled.\n");
-                    ui_set_showing_back_button(0);
-                }
-                else {
-                    ui_print("Back menu button enabled.\n");
-                    ui_set_showing_back_button(1);
-                }
-            }
         }
     }
 
@@ -698,7 +672,7 @@ wipe_data(int confirm) {
 #endif
     erase_volume("/sdcard/.android_secure");
     if (chosen_item == 5) {
-        ui_print("\n-- restore pre-install...\n");
+        ui_print("\n-- restore pre-install apk...\n");
         restore_preinstall();
     }
     ui_print("Data wipe complete.\n");
@@ -754,8 +728,7 @@ prompt_and_wait() {
     for (;;) {
         finish_recovery(NULL);
         ui_reset_progress();
-        
-        ui_menu_level = -1;
+
         allow_display_toggle = 1;
         ui_set_showing_back_button(0);
         int chosen_item = get_menu_selection(headers, MENU_ITEMS, 0, 0);
@@ -922,6 +895,22 @@ main(int argc, char **argv) {
     device_ui_init(&ui_parameters);
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)"\n");
+
+#ifdef RECOVERY_MULTI_BOOT
+    {
+        char msg[100] = { 0 };
+        FILE* fp = fopen("/mbs/stat/mbs.err", "rb");
+        if (fp) {
+            fseek(fp, 0, SEEK_END);
+            size_t length = ftell(fp);
+            fseek(fp, 0L, SEEK_SET);
+            fread(msg, 1, length, fp);
+            fclose(fp);
+            ui_print("boot err: %s\n", msg);
+        }
+    }
+#endif
+
     load_volume_table();
     process_volumes();
     LOGI("Processing arguments.\n");

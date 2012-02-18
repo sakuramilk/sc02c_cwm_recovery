@@ -47,6 +47,13 @@
 
 int signature_check_enabled = 1;
 int script_assert_enabled = 1;
+#ifdef RECOVERY_MULTI_BOOT
+int script_kernel_flash = 0;
+int script_updater_binary = 1;
+#else
+int script_kernel_flash = 1;
+int script_updater_binary = 0;
+#endif
 static const char *SDCARD_UPDATE_FILE = "/sdcard/update.zip";
 #ifdef RECOVERY_MULTI_BOOT
 extern char TARGET_ROM[];
@@ -64,6 +71,19 @@ void toggle_script_asserts()
     script_assert_enabled = !script_assert_enabled;
     ui_print("Script Asserts: %s\n", script_assert_enabled ? "Enabled" : "Disabled");
 }
+
+void toggle_kernel_flash()
+{
+    script_kernel_flash = !script_kernel_flash;
+    ui_print("Kernel Flash: %s\n", script_kernel_flash ? "Enabled" : "Disabled");
+}
+
+void toggle_updater_binary()
+{
+    script_updater_binary = !script_updater_binary;
+    ui_print("Updater Binary %s\n", script_updater_binary ? "Internal" : "External");
+}
+
 
 int install_zip(const char* packagefilepath)
 {
@@ -88,12 +108,16 @@ char* INSTALL_MENU_ITEMS[] = {  "choose zip from internal sdcard",
                                 "apply /sdcard/update.zip",
                                 "toggle signature verification",
                                 "toggle script asserts",
+                                "toggle kernel flash",
+                                "toggle updater binary",
                                 NULL };
 #define ITEM_CHOOSE_ZIP       0
 #define ITEM_CHOOSE_ZIP_INT   1
 #define ITEM_APPLY_SDCARD     2
 #define ITEM_SIG_CHECK        3
 #define ITEM_ASSERTS          4
+#define ITEM_KERNEL_FLASH     5
+#define ITEM_UPDATER_BINARY   6
 
 void show_install_update_menu()
 {
@@ -125,6 +149,12 @@ void show_install_update_menu()
                     install_zip(SDCARD_UPDATE_FILE);
                 break;
             }
+            case ITEM_KERNEL_FLASH:
+                toggle_kernel_flash();
+                break;
+            case ITEM_UPDATER_BINARY:
+                toggle_updater_binary();
+                break;
             case ITEM_CHOOSE_ZIP:
                 show_choose_zip_menu("/sdcard/");
                 break;
@@ -344,7 +374,7 @@ void show_choose_zip_menu(const char *mount_point)
         install_zip(file);
 }
 
-void show_nandroid_restore_menu(const char* path)
+void show_nandroid_restore_menu(const char* path, int restore_kernel)
 {
     if (ensure_path_mounted(path) != 0) {
         LOGE("Can't mount %s\n", path);
@@ -366,7 +396,7 @@ void show_nandroid_restore_menu(const char* path)
         return;
 
     if (confirm_selection("Confirm restore?", "Yes - Restore"))
-        nandroid_restore(file, 1, 1, 1, 1, 1, 0);
+        nandroid_restore(file, restore_kernel, 1, 1, 1, 1, 0);
 }
 
 #ifndef BOARD_UMS_LUNFILE
@@ -469,9 +499,6 @@ int format_device(const char *device, const char *path, const char *fs_type) {
             return -1;
         LOGE("unknown volume \"%s\"\n", path);
         return -1;
-    }
-    if (strstr(path, "/data") == path && volume_for_path("/sdcard") == NULL && is_data_media()) {
-        return format_unknown_device(NULL, path, NULL);
     }
     if (strcmp(fs_type, "ramdisk") == 0) {
         // you can't format the ramdisk.
@@ -659,7 +686,7 @@ void show_partition_menu()
     string options[255];
 
     if(!device_volumes)
-		    return;
+		return;
 
 		mountable_volumes = 0;
 		formatable_volumes = 0;
@@ -857,10 +884,12 @@ void show_nandroid_menu()
 
     static char* list[] = { "backup to internal sdcard",
                             "restore from internal sdcard",
-                            "advanced restore",
+                            "restore from internal sdcard with out kernel",
+                            "advanced restore from internal sdcard",
                             "backup to external sdcard",
                             "restore from external sdcard",
-                            "advanced restore from internal sdcard",
+                            "restore from external sdcard with out kernel",
+                            "advanced restore from external sdcard",
                             NULL
     };
 
@@ -893,12 +922,15 @@ void show_nandroid_menu()
             }
             break;
         case 1:
-            show_nandroid_restore_menu("/sdcard");
+            show_nandroid_restore_menu("/sdcard", 1);
             break;
         case 2:
-            show_nandroid_advanced_restore_menu("/sdcard");
+            show_nandroid_restore_menu("/sdcard", 0);
             break;
         case 3:
+            show_nandroid_advanced_restore_menu("/sdcard");
+            break;
+        case 4:
             {
                 char backup_path[PATH_MAX];
 #ifdef RECOVERY_TZ_JPN
@@ -920,10 +952,13 @@ void show_nandroid_menu()
                 nandroid_backup(backup_path);
             }
             break;
-        case 4:
-            show_nandroid_restore_menu("/emmc");
-            break;
         case 5:
+            show_nandroid_restore_menu("/emmc", 1);
+            break;
+        case 6:
+            show_nandroid_restore_menu("/emmc", 0);
+            break;
+        case 7:
             show_nandroid_advanced_restore_menu("/emmc");
             break;
     }
@@ -1079,6 +1114,7 @@ void show_advanced_menu()
                 ui_print("Done!\n");
                 break;
             }
+#ifdef BOARD_HAS_SDCARD_INTERNAL
             case 9:
             {
                 static char* ext_sizes[] = { "128M",
@@ -1122,6 +1158,7 @@ void show_advanced_menu()
                     ui_print("An error occured while partitioning your Internal SD Card. Please see /tmp/recovery.log for more details.\n");
                 break;
             }
+#endif // BOARD_HAS_SDCARD_INTERNAL
         }
     }
 }
@@ -1143,7 +1180,11 @@ void write_fstab_root(char *path, FILE *file)
     fprintf(file, "%s ", device);
     fprintf(file, "%s ", path);
     // special case rfs cause auto will mount it as vfat on samsung.
-    fprintf(file, "%s rw\n", vol->fs_type2 != NULL && strcmp(vol->fs_type, "rfs") != 0 ? "auto" : vol->fs_type);
+    fprintf(file, "%s rw", vol->fs_type2 != NULL && strcmp(vol->fs_type, "rfs") != 0 ? "auto" : vol->fs_type);
+    if (vol->fs_options)
+        fprintf(file, " %s\n", vol->fs_options);
+    else
+        fprintf(file, "\n");
 }
 
 void create_fstab()

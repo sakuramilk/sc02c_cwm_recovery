@@ -59,28 +59,6 @@ static char* dupe_string(const char* sz) {
     return strdup(sz);
 }
 
-static int parse_options(char* options, Volume* volume) {
-    char* option;
-    while (option = strtok(options, ",")) {
-        options = NULL;
-
-        if (strncmp(option, "length=", 7) == 0) {
-            volume->length = strtoll(option+7, NULL, 10);
-        } else if (strncmp(option, "fstype2=", 8) == 0) {
-            volume->fs_type2 = volume->fs_type;
-            volume->fs_type = strdup(option + 8);
-        } else if (strncmp(option, "fs_options=", 11) == 0) {
-            volume->fs_options = strdup(option + 11);
-        } else if (strncmp(option, "fs_options2=", 12) == 0) {
-            volume->fs_options2 = strdup(option + 12);
-        } else {
-            LOGE("bad option \"%s\"\n", option);
-            return -1;
-        }
-    }
-    return 0;
-}
-
 void load_volume_table() {
     int alloc = 2;
     device_volumes = malloc(alloc * sizeof(Volume));
@@ -115,16 +93,12 @@ void load_volume_table() {
         char* device = strtok(NULL, " \t\n");
         // lines may optionally have a second device, to use if
         // mounting the first one fails.
-        char* options = NULL;
+        char* fs_options = strtok(NULL, " \t\n");
+        // lines may optionally have a second device, to use if
+        // mounting the first one fails.
         char* device2 = strtok(NULL, " \t\n");
-        if (device2) {
-            if (device2[0] == '/') {
-                options = strtok(NULL, " \t\n");
-            } else {
-                options = device2;
-                device2 = NULL;
-            }
-        }
+        char* fs_type2 = strtok(NULL, " \t\n");
+        char* fs_options2 = strtok(NULL, " \t\n");
 
         if (mount_point && fs_type && device) {
             while (num_volumes >= alloc) {
@@ -132,22 +106,21 @@ void load_volume_table() {
                 device_volumes = realloc(device_volumes, alloc*sizeof(Volume));
             }
             device_volumes[num_volumes].mount_point = strdup(mount_point);
-            device_volumes[num_volumes].fs_type = strdup(fs_type);
+            device_volumes[num_volumes].fs_type = !is_null(fs_type2) ? strdup(fs_type2) : strdup(fs_type);
             device_volumes[num_volumes].device = strdup(device);
             device_volumes[num_volumes].device2 =
-                device2 ? strdup(device2) : NULL;
+                !is_null(device2) ? strdup(device2) : NULL;
+            device_volumes[num_volumes].fs_type2 = !is_null(fs_type2) ? strdup(fs_type) : NULL;
 
-            device_volumes[num_volumes].length = 0;
-
-            device_volumes[num_volumes].fs_type2 = NULL;
-            device_volumes[num_volumes].fs_options = NULL;
-            device_volumes[num_volumes].fs_options2 = NULL;
-
-            if (parse_options(options, device_volumes + num_volumes) != 0) {
-                LOGE("skipping malformed recovery.fstab line: %s\n", original);
-            } else {
-                ++num_volumes;
+            if (!is_null(fs_type2)) {
+                device_volumes[num_volumes].fs_options2 = dupe_string(fs_options);
+                device_volumes[num_volumes].fs_options = dupe_string(fs_options2);
             }
+            else {
+                device_volumes[num_volumes].fs_options2 = NULL;
+                device_volumes[num_volumes].fs_options = dupe_string(fs_options);
+            }
+            ++num_volumes;
         } else {
             LOGE("skipping malformed recovery.fstab line: %s\n", original);
         }
@@ -345,11 +318,6 @@ int format_volume(const char* volume) {
 #endif
         LOGE("unknown volume \"%s\"\n", volume);
         return -1;
-    }
-    // check to see if /data is being formatted, and if it is /data/media
-    // Note: the /sdcard check is redundant probably, just being safe.
-    if (strstr(volume, "/data") == volume && volume_for_path("/sdcard") == NULL && is_data_media()) {
-        return format_unknown_device(NULL, volume, NULL);
     }
     if (strcmp(v->fs_type, "ramdisk") == 0) {
         // you can't format the ramdisk.
