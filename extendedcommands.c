@@ -992,7 +992,7 @@ void show_advanced_menu()
                             "Internal Partition SD Card",
                             "Fix Permissions",
 #ifdef BOARD_HAS_SDCARD_INTERNAL
-                            "External Partition Internal SD Card",
+                            "External Partition SD Card",
 #endif
                             NULL
     };
