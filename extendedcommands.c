@@ -400,7 +400,7 @@ void show_nandroid_restore_menu(const char* path, int restore_kernel)
 }
 
 #ifndef BOARD_UMS_LUNFILE
-#define BOARD_UMS_LUNFILE	"/sys/devices/platform/usb_mass_storage/lun0/file"
+#define BOARD_UMS_LUNFILE	"/sys/devices/platform/s3c-usbgadget/gadget/lun0/file"
 #endif
 
 void show_mount_usb_storage_menu()
@@ -739,13 +739,8 @@ void show_partition_menu()
     			options[mountable_volumes+i] = e->txt;
     		}
 
-        if (!is_data_media()) {
           options[mountable_volumes + formatable_volumes] = "mount USB storage";
           options[mountable_volumes + formatable_volumes + 1] = NULL;
-        }
-        else {
-          options[mountable_volumes + formatable_volumes] = NULL;
-        }
 
         int chosen_item = get_menu_selection(headers, &options, 0, 0);
         if (chosen_item == GO_BACK)
