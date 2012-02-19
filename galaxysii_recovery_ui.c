@@ -101,8 +101,7 @@ int restore_preinstall()
     chown("/data/system/usagestats", 1000, 1000);
 #endif
 
-    _system("mount -t ext4 /dev/block/mmcblk0p12 /preload");
-    usleep(3000);
+    __system("mount -t ext4 /dev/block/mmcblk0p12 /preload");
     mkdir("/data/app", 0771);
     chown("/data/app", 1000, 1000);	
     __system("cp /preload/app/* /data/app/");
