@@ -718,7 +718,7 @@ select_boot_rom(int confirm) {
                           NULL };
 
         chosen_item = get_menu_selection(title_headers, items, 1, 0);
-        if (chosen_item > 7) {
+        if (chosen_item > 7 || chosen_item == GO_BACK) {
             return;
         }
     }
