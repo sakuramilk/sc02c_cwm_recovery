@@ -148,6 +148,7 @@ static const int MAX_ARG_LENGTH = 4096;
 static const int MAX_ARGS = 100;
 #ifdef RECOVERY_MULTI_BOOT
 char TARGET_ROM[100];
+int is_boot_error = 0;
 #endif
 
 // open a given path, mounting partitions as necessary
@@ -753,6 +754,21 @@ prompt_and_wait() {
         // statement below.
         chosen_item = device_perform_action(chosen_item);
 
+#ifdef RECOVERY_MULTI_BOOT
+        if (is_boot_error &&
+            (chosen_item == ITEM_WIPE_DATA ||
+             chosen_item == ITEM_WIPE_CACHE ||
+             chosen_item == ITEM_APPLY_SDCARD ||
+             chosen_item == ITEM_INSTALL_ZIP ||
+             chosen_item == ITEM_NANDROID ||
+             chosen_item == ITEM_PARTITION ||
+             chosen_item == ITEM_ADVANCED)
+           ) {
+            ui_print("Please correct the errors mbs.conf\n");
+            continue;
+        }
+#endif
+
         switch (chosen_item) {
             case ITEM_REBOOT:
                 poweroff=0;
@@ -861,6 +877,14 @@ main(int argc, char **argv) {
             if (argc > 1) {
                 int i, chg_system = 0, chg_data = 0;
                 for (i = 1; i < argc; i++) {
+                    if (strstr(argv[i], "mmcblk0p1") &&
+                        !strstr(argv[i], "mmcblk0p10") &&
+                        !strstr(argv[i], "mmcblk0p11") &&
+                        !strstr(argv[i], "mmcblk0p12")) {
+                        return __system("mount");
+                    }
+                }
+                for (i = 1; i < argc; i++) {
                     if (strcmp(argv[i], "/system") == 0) {
                         chg_system = (argc != 2) ? 1 : 0;
                         break;
@@ -909,10 +933,15 @@ main(int argc, char **argv) {
     fp = fopen("/mbs/stat/system_device", "rb");
     fseek(fp, 0, SEEK_END);
     size_t length = ftell(fp);
-    fseek(fp, 0L, SEEK_SET);
-    fread(sysDevice, 1, length, fp);
-    fclose(fp);
-    setenv("SYSTEM_DEVICE", sysDevice, 1);
+    if (length > 0) {
+        fseek(fp, 0L, SEEK_SET);
+        fread(sysDevice, 1, length, fp);
+        fclose(fp);
+        setenv("SYSTEM_DEVICE", sysDevice, 1);
+    } else {
+        ui_print("fatal err: not found system devce path\n");
+        is_boot_error = 1;
+    }
 #endif
 
     ui_init();
@@ -929,6 +958,7 @@ main(int argc, char **argv) {
             fread(msg, 1, length, fp);
             fclose(fp);
             ui_print("boot err: %s\n", msg);
+            is_boot_error = 1;
         }
     }
 #endif
