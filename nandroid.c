@@ -112,11 +112,15 @@ static int mkyaffs2image_wrapper(const char* backup_path, const char* backup_fil
 
 static int tar_compress_wrapper(const char* backup_path, const char* backup_file_image, int callback) {
     char tmp[PATH_MAX];
-    if (strcmp("/data", backup_path) == 0) {
-        sprintf(tmp, "cd $(dirname %s) ; tar chvf %s.tar $(basename %s) ; exit $?", backup_path, backup_file_image, backup_path);
-    } else {
-        sprintf(tmp, "cd $(dirname %s) ; tar cvf %s.tar $(basename %s) ; exit $?", backup_path, backup_file_image, backup_path);
-    }
+#ifdef RECOVERY_MULTI_BOOT
+    if (strcmp(backup_path, "/data") == 0)
+      sprintf(tmp, "cd $(dirname %s) ; tar chvf %s.tar $(basename %s) ; exit $?", backup_path, backup_file_image, backup_path);
+#else
+    if (strcmp(backup_path, "/data") == 0 && volume_for_path("/sdcard") == NULL)
+      sprintf(tmp, "cd $(dirname %s) ; tar cvf %s.tar --exclude 'media' $(basename %s) ; exit $?", backup_path, backup_file_image, backup_path);
+#endif
+    else
+      sprintf(tmp, "cd $(dirname %s) ; tar cvf %s.tar $(basename %s) ; exit $?", backup_path, backup_file_image, backup_path);
 
     FILE *fp = __popen(tmp, "r");
     if (fp == NULL) {

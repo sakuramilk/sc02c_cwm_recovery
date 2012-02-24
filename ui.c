@@ -265,8 +265,8 @@ static void draw_screen_locked(void)
                     break;
             }
 
-            if (menu_items <= max_menu_rows)
-                offset = 1;
+            //if (menu_items <= max_menu_rows)
+            //    offset = 1;
 
             gr_fill(0, (row-offset)*CHAR_HEIGHT+CHAR_HEIGHT/2-1,
                     gr_fb_width(), (row-offset)*CHAR_HEIGHT+CHAR_HEIGHT/2+1);
@@ -670,9 +670,6 @@ int ui_start_menu(char** headers, char** items, int initial_selection) {
             strcpy(menu[i], " - +++++Go Back+++++");
             ++i;
         }
-        
-        strcpy(menu[i], " ");
-        ++i;
 
         menu_items = i - menu_top;
         show_menu = 1;
@@ -693,8 +690,8 @@ int ui_menu_select(int sel) {
         old_sel = menu_sel;
         menu_sel = sel;
 
-        if (menu_sel < 0) menu_sel = menu_items-1 + menu_sel;
-        if (menu_sel >= menu_items-1) menu_sel = menu_sel - menu_items+1;
+        if (menu_sel < 0) menu_sel = menu_items + menu_sel;
+        if (menu_sel >= menu_items) menu_sel = menu_sel - menu_items;
 
 
         if (menu_sel < menu_show_start && menu_show_start > 0) {
