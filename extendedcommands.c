@@ -611,15 +611,26 @@ int format_unknown_device(const char *device, const char* path, const char *fs_t
     }
 
     static char tmp[PATH_MAX];
+    char buf[PATH_MAX];
+    ssize_t len = readlink(path, buf, sizeof(buf));
+    if (len > 0 && (strcmp(buf, "/") == 0 || strstr(buf, "efs"))) {
+        LOGE("Error format path is root or efs.\n");
+        return -12;
+    }
+
     if (strcmp(path, "/data") == 0) {
         sprintf(tmp, "cd /data ; for f in $(ls -a | grep -v ^media$); do rm -rf $f; done");
         __system(tmp);
     }
     else {
-        sprintf(tmp, "rm -rf %s/*", path);
-        __system(tmp);
-        sprintf(tmp, "rm -rf %s/.*", path);
-        __system(tmp);
+        if (strlen(path) > 0 && !strstr(path, "efs") && strcmp(path, "/") != 0) {
+            sprintf(tmp, "rm -rf %s/*", path);
+            __system(tmp);
+            sprintf(tmp, "rm -rf %s/.*", path);
+            __system(tmp);
+        } else {
+            LOGE("Error format path is root or efs.\n");
+        }
     }
 
     ensure_path_unmounted(path);
@@ -749,6 +760,14 @@ void show_partition_menu()
         {
 			MountMenuEntry* e = &mount_menue[chosen_item];
             Volume* v = e->v;
+
+            if (strstr(v->device, "mmcblk0p1") &&
+                !strstr(v->device, "mmcblk0p10") &&
+                !strstr(v->device, "mmcblk0p11") &&
+                !strstr(v->device, "mmcblk0p12")) {
+                ui_print("Error mounting %s!\n", v->mount_point);
+                return;
+            }
 
             if (is_path_mounted(v->mount_point))
             {

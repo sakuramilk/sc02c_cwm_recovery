@@ -76,8 +76,6 @@ int device_perform_action(int which) {
 }
 
 int device_wipe_data() {
-    __system("rm -rf /data/*");
-    __system("rm -rf /data/.*");
     return 0;
 }
 
