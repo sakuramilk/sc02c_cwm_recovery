@@ -25,6 +25,7 @@ LOCAL_CFLAGS += -DUSE_EXT4
 LOCAL_C_INCLUDES += system/extras/ext4_utils
 LOCAL_STATIC_LIBRARIES += libext4_utils libz
 endif
+LOCAL_CFLAGS += -DRECOVERY_MULTI_BOOT
 
 LOCAL_STATIC_LIBRARIES += libflashutils libmtdutils libmmcutils libbmlutils libcrecovery
 

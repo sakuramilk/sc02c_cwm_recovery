@@ -840,6 +840,16 @@ Value* WriteRawImageFn(const char* name, State* state, int argc, Expr* argv[]) {
         ErrorAbort(state, "file argument to %s can't be empty", name);
         goto done;
     }
+    {
+        char* value = getenv("KERNEL_FLASH");
+        if (value != NULL && value[0] == '0' && strstr(partition, "mmcblk0p5")) {
+            fprintf(stderr, "write_raw_image: skip flash kernel");
+            result = strdup(partition);
+            goto done;
+        } else {
+            fprintf(stderr, "*** !!! write_raw_image kernel flash !!!\n");
+        }
+    }
 
     char* filename = contents->data;
     if (0 == restore_raw_partition(NULL, partition, filename))
@@ -1016,6 +1026,24 @@ Value* RunProgramFn(const char* name, State* state, int argc, Expr* argv[]) {
         return NULL;
     }
 
+    char* value = getenv("KERNEL_FLASH");
+    if (value != NULL && value[0] == '0') {
+        int i;
+        fprintf(stderr, "*** !!! ignore kernel flash !!!\n");
+        for (i = 0; i < argc; i++) {
+            if (strstr(argv[i], "mmcblk0p5")) {
+                for (i = 0; i < argc; ++i) {
+                    free(args[i]);
+                }
+                free(args);
+                fprintf(stderr, "run_program: skip flash kernel");
+                return StringValue(strdup("0"));
+            }
+        }
+    } else {
+        fprintf(stderr, "*** !!! kernel flash !!!\n");
+    }
+
     char** args2 = malloc(sizeof(char*) * (argc+1));
     memcpy(args2, args, sizeof(char*) * argc);
     args2[argc] = NULL;
@@ -1048,6 +1076,7 @@ Value* RunProgramFn(const char* name, State* state, int argc, Expr* argv[]) {
     free(args2);
 
     char buffer[20];
+    fprintf(stderr, "*** run_program exit %s\n", buffer);
     sprintf(buffer, "%d", status);
 
     return StringValue(strdup(buffer));

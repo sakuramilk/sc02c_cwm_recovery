@@ -25,14 +25,19 @@ int multi_mount(const char* device, const char* mount_point, const char* fs_type
 #ifdef RECOVERY_MULTI_BOOT
     char mount_cmd[PATH_MAX];
 
-    if (strcmp(mount_point, "/system") == 0) {
+    fprintf(stderr, "*** multi_mount device=%s, mount_point=%s\n", device, mount_point);
+
+    if (strstr(device, "mmcblk0p9")) {
         sprintf(mount_cmd, "mount %s", "/system");
+        fprintf(stderr, "*** multi_mount cmd=%s\n", mount_cmd);
         return __system(mount_cmd);
-    } else if (strcmp(mount_point, "/data") == 0) {
+    } else if (strstr(device, "mmcblk0p10")) {
         sprintf(mount_cmd, "mount %s", "/data_dev");
+        fprintf(stderr, "*** multi_mount cmd=%s\n", mount_cmd);
         return __system(mount_cmd);
     } else {
         int ret = 0;
+        fprintf(stderr, "*** multi_mount no handle\n");
         if (fs_options == NULL) {
             ret = mount(device, mount_point, fs_type,
                            MS_NOATIME | MS_NODEV | MS_NODIRATIME, "");
@@ -45,22 +50,35 @@ int multi_mount(const char* device, const char* mount_point, const char* fs_type
         return ret;
     }
 #else
+    fprintf(stderr, "*** multi_mount not defined MULTI_BOOT\n");
     return -1;
 #endif
 }
 
 int multi_format(const char* location) {
 #ifdef RECOVERY_MULTI_BOOT
-    printf("multi_format location=%s\n", location);
-    if (strcmp(location, "/dev/block/mmcblk0p9") == 0) {
+    fprintf(stderr, "multi_format location=%s\n", location);
+
+    if (strstr(location, "mmcblk0p9")) {
         char* value = getenv("SYSTEM_DEVICE");
+        fprintf(stderr, "multi_format SYSTEM_DEVICE=%s\n", value);
         if (value && strlen(value) > 0) {
             char cmd[PATH_MAX];
             sprintf(cmd, "mke2fs -T ext4 -F %s", value);
+            fprintf(stderr, "*** multi_format cmd=%s\n", cmd);
             return __system(cmd);
         }
+    } else if (strstr(location, "mmcblk0p10")) {
+        __system("mount /data");
+        __system("rm -rf /data/*");
+        __system("rm -rf /data/.*");
+        __system("umount /data");
+        return 0;
     }
-#endif
     return -1;
+#else
+    fprintf(stderr, "*** multi_mount not defined MULTI_BOOT\n");
+    return -1;
+#endif
 }
 

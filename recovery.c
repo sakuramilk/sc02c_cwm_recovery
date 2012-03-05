@@ -755,7 +755,6 @@ prompt_and_wait() {
         }
 #endif
 
-        int status;
         switch (chosen_item) {
             case ITEM_REBOOT:
                 poweroff=0;

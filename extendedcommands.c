@@ -750,8 +750,13 @@ void show_partition_menu()
     			options[mountable_volumes+i] = e->txt;
     		}
 
+        if (!is_data_media()) {
           options[mountable_volumes + formatable_volumes] = "mount USB storage";
           options[mountable_volumes + formatable_volumes + 1] = NULL;
+        }
+        else {
+          options[mountable_volumes + formatable_volumes] = NULL;
+        }
 
         int chosen_item = get_menu_selection(headers, &options, 0, 0);
         if (chosen_item == GO_BACK)
