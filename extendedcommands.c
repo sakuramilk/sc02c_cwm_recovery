@@ -493,6 +493,13 @@ int format_device(const char *device, const char *path, const char *fs_type) {
         if (strstr(path, "/sdcard") == path && is_data_media()) {
             return format_unknown_device(NULL, path, NULL);
         }
+#ifdef RECOVERY_MULTI_BOOT
+        if (strcmp(path, "/data") == 0) {
+            __system("rm -rf /data/*");
+            __system("rm -rf /data/.*");
+            return 0;
+        }
+#endif
         // silent failure for sd-ext
         if (strcmp(path, "/sd-ext") == 0)
             return -1;
