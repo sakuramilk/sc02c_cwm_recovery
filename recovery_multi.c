@@ -31,7 +31,7 @@ int multi_mount(const char* device, const char* mount_point, const char* fs_type
         sprintf(mount_cmd, "mount %s", "/system");
         fprintf(stderr, "*** multi_mount cmd=%s\n", mount_cmd);
         return __system(mount_cmd);
-    } else if (strstr(device, "mmcblk0p10")) {
+    } else if (strstr(device, "mmcblk0p10") && (strcmp(mount_point, "/xdata") != 0)) {
         sprintf(mount_cmd, "mount %s", "/data_dev");
         fprintf(stderr, "*** multi_mount cmd=%s\n", mount_cmd);
         return __system(mount_cmd);
