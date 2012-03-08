@@ -91,7 +91,12 @@ static void compute_directory_stats(const char* directory)
     char tmp[PATH_MAX];
 #ifdef RECOVERY_MULTI_BOOT
     if (strcmp(directory, "/data") == 0) {
-        sprintf(tmp, "find %s -follow | wc -l > /tmp/dircount", directory);
+        char link_path[PATH_MAX] = { 0 };
+        ssize_t len = readlink(directory, link_path, sizeof(link_path));
+        if (len > 0)
+            sprintf(tmp, "find %s | wc -l > /tmp/dircount", link_path);
+        else
+            sprintf(tmp, "find %s | wc -l > /tmp/dircount", directory);
     } else {
         sprintf(tmp, "find %s | wc -l > /tmp/dircount", directory);
     }
@@ -122,14 +127,7 @@ static int tar_compress_wrapper(const char* backup_path, const char* backup_file
     char tmp[PATH_MAX];
 #ifdef RECOVERY_MULTI_BOOT
     if (strcmp(backup_path, "/data") == 0) {
-        char link_path[PATH_MAX];
-        ssize_t len = readlink(backup_path, link_path, sizeof(link_path));
-        LOGI("*** link_path=%s", link_path);
-        if (len > 0) {
-            sprintf(tmp, "cd $(dirname %s) ; tar cvf %s.tar $(basename %s) ; exit $?", link_path, backup_file_image, backup_path);
-        } else {
-            sprintf(tmp, "cd $(dirname %s) ; tar cvf %s.tar $(basename %s) ; exit $?", backup_path, backup_file_image, backup_path);
-        }
+        sprintf(tmp, "cd / ; tar cvf %s.tar data/*", backup_file_image);
     }
 #else
     if (strcmp(backup_path, "/data") == 0 && volume_for_path("/sdcard") == NULL)
@@ -138,6 +136,7 @@ static int tar_compress_wrapper(const char* backup_path, const char* backup_file
     else
         sprintf(tmp, "cd $(dirname %s) ; tar cvf %s.tar $(basename %s) ; exit $?", backup_path, backup_file_image, backup_path);
 
+    LOGI("*** cmd=%s\n", tmp);
     FILE *fp = __popen(tmp, "r");
     if (fp == NULL) {
         ui_print("Unable to execute tar.\n");
