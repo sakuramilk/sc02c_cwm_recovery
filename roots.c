@@ -59,6 +59,28 @@ static char* dupe_string(const char* sz) {
     return strdup(sz);
 }
 
+static int parse_options(char* options, Volume* volume) {
+    char* option;
+    while (option = strtok(options, ",")) {
+        options = NULL;
+
+        if (strncmp(option, "length=", 7) == 0) {
+            volume->length = strtoll(option+7, NULL, 10);
+        } else if (strncmp(option, "fstype2=", 8) == 0) {
+            volume->fs_type2 = volume->fs_type;
+            volume->fs_type = strdup(option + 8);
+        } else if (strncmp(option, "fs_options=", 11) == 0) {
+            volume->fs_options = strdup(option + 11);
+        } else if (strncmp(option, "fs_options2=", 12) == 0) {
+            volume->fs_options2 = strdup(option + 12);
+        } else {
+            LOGE("bad option \"%s\"\n", option);
+            return -1;
+        }
+    }
+    return 0;
+}
+
 void load_volume_table() {
     int alloc = 2;
     device_volumes = malloc(alloc * sizeof(Volume));
@@ -93,6 +115,7 @@ void load_volume_table() {
         char* device = strtok(NULL, " \t\n");
         // lines may optionally have a second device, to use if
         // mounting the first one fails.
+#ifdef RECOVERY_MULTI_BOOT
         char* fs_options = strtok(NULL, " \t\n");
         // lines may optionally have a second device, to use if
         // mounting the first one fails.
@@ -121,6 +144,41 @@ void load_volume_table() {
                 device_volumes[num_volumes].fs_options = dupe_string(fs_options);
             }
             ++num_volumes;
+#else
+        char* options = NULL;
+        char* device2 = strtok(NULL, " \t\n");
+        if (device2) {
+            if (device2[0] == '/') {
+                options = strtok(NULL, " \t\n");
+            } else {
+                options = device2;
+                device2 = NULL;
+            }
+        }
+
+        if (mount_point && fs_type && device) {
+            while (num_volumes >= alloc) {
+                alloc *= 2;
+                device_volumes = realloc(device_volumes, alloc*sizeof(Volume));
+            }
+            device_volumes[num_volumes].mount_point = strdup(mount_point);
+            device_volumes[num_volumes].fs_type = strdup(fs_type);
+            device_volumes[num_volumes].device = strdup(device);
+            device_volumes[num_volumes].device2 =
+                device2 ? strdup(device2) : NULL;
+
+            device_volumes[num_volumes].length = 0;
+
+            device_volumes[num_volumes].fs_type2 = NULL;
+            device_volumes[num_volumes].fs_options = NULL;
+            device_volumes[num_volumes].fs_options2 = NULL;
+
+            if (parse_options(options, device_volumes + num_volumes) != 0) {
+                LOGE("skipping malformed recovery.fstab line: %s\n", original);
+            } else {
+                ++num_volumes;
+            }
+#endif
         } else {
             LOGE("skipping malformed recovery.fstab line: %s\n", original);
         }
