@@ -918,7 +918,7 @@ main(int argc, char **argv) {
         is_boot_error = 1;
     }
 #endif
-
+    usleep(1000 * 1000); // wait 1sec
     device_ui_init(&ui_parameters);
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)"\n");
