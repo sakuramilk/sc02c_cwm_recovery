@@ -399,9 +399,9 @@ void show_nandroid_restore_menu(const char* path, int restore_kernel)
         nandroid_restore(file, restore_kernel, 1, 1, 1, 1, 0);
 }
 
-#ifndef BOARD_UMS_LUNFILE
+//#ifndef BOARD_UMS_LUNFILE
 #define BOARD_UMS_LUNFILE	"/sys/devices/platform/s3c-usbgadget/gadget/lun0/file"
-#endif
+//#endif
 
 void show_mount_usb_storage_menu()
 {
@@ -494,6 +494,13 @@ int format_device(const char *device, const char *path, const char *fs_type) {
         if (strstr(path, "/sdcard") == path && is_data_media()) {
             return format_unknown_device(NULL, path, NULL);
         }
+#ifdef RECOVERY_MULTI_BOOT
+        if (strcmp(path, "/data") == 0) {
+            __system("rm -rf /data/*");
+            __system("rm -rf /data/.*");
+            return 0;
+        }
+#endif
         // silent failure for sd-ext
         if (strcmp(path, "/sd-ext") == 0)
             return -1;
