@@ -399,25 +399,40 @@ void show_nandroid_restore_menu(const char* path, int restore_kernel)
         nandroid_restore(file, restore_kernel, 1, 1, 1, 1, 0);
 }
 
-//#ifndef BOARD_UMS_LUNFILE
-#define BOARD_UMS_LUNFILE	"/sys/devices/platform/s3c-usbgadget/gadget/lun0/file"
-//#endif
+#define BOARD_UMS_LUNFILE0		"/sys/devices/virtual/android_usb/android0/f_mass_storage/lun0/file"
+#define BOARD_UMS_LUNFILE1		"/sys/devices/virtual/android_usb/android0/f_mass_storage/lun1/file"
 
 void show_mount_usb_storage_menu()
 {
-    int fd;
-    Volume *vol = volume_for_path("/sdcard");
-    if ((fd = open(BOARD_UMS_LUNFILE, O_WRONLY)) < 0) {
-        LOGE("Unable to open ums lunfile (%s)", strerror(errno));
+    int fd_int, fd_ext;
+    Volume *vol_int = volume_for_path("/sdcard");
+    Volume *vol_ext = volume_for_path("/emmc");
+    if ((fd_int = open(BOARD_UMS_LUNFILE0, O_WRONLY)) < 0) {
+        LOGE("Unable to open ums lunfile0 (%s)", strerror(errno));
         return -1;
+    }
+    if ((fd_ext = open(BOARD_UMS_LUNFILE1, O_WRONLY)) < 0) {
+        LOGI("Unable to open ums lunfile1 (%s)", strerror(errno));
     }
 
-    if ((write(fd, vol->device, strlen(vol->device)) < 0) &&
-        (!vol->device2 || (write(fd, vol->device, strlen(vol->device2)) < 0))) {
-        LOGE("Unable to write to ums lunfile (%s)", strerror(errno));
-        close(fd);
+    if ((write(fd_int, vol_int->device, strlen(vol_int->device)) < 0) &&
+        (!vol_int->device2 || (write(fd_int, vol_int->device, strlen(vol_int->device2)) < 0))) {
+        LOGE("Unable to write to ums lunfile0 (%s)", strerror(errno));
+        close(fd_int);
+        if (fd_ext != -1) {
+            close(fd_ext);
+        }
         return -1;
     }
+    if (fd_ext != -1) {
+        if ((write(fd_ext, vol_ext->device, strlen(vol_ext->device)) < 0) &&
+            (!vol_ext->device2 || (write(fd_ext, vol_ext->device, strlen(vol_ext->device2)) < 0))) {
+            LOGI("Unable to write to ums lunfile1 (%s)", strerror(errno));
+            close(fd_ext);
+            fd_ext = -1;
+         }
+    }
+
     static char* headers[] = {  "USB Mass Storage device",
                                 "Leaving this menu unmount",
                                 "your SD card from your PC.",
@@ -434,16 +449,30 @@ void show_mount_usb_storage_menu()
             break;
     }
 
-    if ((fd = open(BOARD_UMS_LUNFILE, O_WRONLY)) < 0) {
-        LOGE("Unable to open ums lunfile (%s)", strerror(errno));
+    if ((fd_int = open(BOARD_UMS_LUNFILE0, O_WRONLY)) < 0) {
+        LOGE("Unable to open ums lunfile0 (%s)", strerror(errno));
         return -1;
     }
 
     char ch = 0;
-    if (write(fd, &ch, 1) < 0) {
-        LOGE("Unable to write to ums lunfile (%s)", strerror(errno));
-        close(fd);
+    if (write(fd_int, &ch, 1) < 0) {
+        LOGE("Unable to write to ums lunfile0 (%s)", strerror(errno));
+        close(fd_int);
         return -1;
+    }
+
+    if (fd_ext != -1) {
+        if ((fd_ext = open(BOARD_UMS_LUNFILE1, O_WRONLY)) < 0) {
+            LOGI("Unable to open ums lunfile1 (%s)", strerror(errno));
+            return -1;
+        }
+
+        ch = 0;
+        if (write(fd_ext, &ch, 1) < 0) {
+            LOGI("Unable to write to ums lunfile1 (%s)", strerror(errno));
+            close(fd_ext);
+            return -1;
+        }
     }
 }
 
@@ -506,6 +535,9 @@ int format_device(const char *device, const char *path, const char *fs_type) {
             return -1;
         LOGE("unknown volume \"%s\"\n", path);
         return -1;
+    }
+    if (strstr(path, "/data") == path && volume_for_path("/sdcard") == NULL && is_data_media()) {
+        return format_unknown_device(NULL, path, NULL);
     }
     if (strcmp(fs_type, "ramdisk") == 0) {
         // you can't format the ramdisk.
@@ -623,14 +655,15 @@ int format_unknown_device(const char *device, const char* path, const char *fs_t
         return 0;
     }
 
-    static char tmp[PATH_MAX];
+#ifdef RECOVERY_MULTI_BOOT
     char buf[PATH_MAX];
     ssize_t len = readlink(path, buf, sizeof(buf));
     if (len > 0 && (strcmp(buf, "/") == 0 || strstr(buf, "efs"))) {
         LOGE("Error format path is root or efs.\n");
         return -12;
     }
-
+#endif
+    static char tmp[PATH_MAX];
     if (strcmp(path, "/data") == 0) {
         sprintf(tmp, "cd /data ; for f in $(ls -a | grep -v ^media$); do rm -rf $f; done");
         __system(tmp);
@@ -1206,11 +1239,15 @@ void write_fstab_root(char *path, FILE *file)
     fprintf(file, "%s ", device);
     fprintf(file, "%s ", path);
     // special case rfs cause auto will mount it as vfat on samsung.
+#ifdef RECOVERY_MULTI_BOOT
     fprintf(file, "%s rw", vol->fs_type2 != NULL && strcmp(vol->fs_type, "rfs") != 0 ? "auto" : vol->fs_type);
     if (vol->fs_options)
         fprintf(file, " %s\n", vol->fs_options);
     else
         fprintf(file, "\n");
+#else
+    fprintf(file, "%s rw\n", vol->fs_type2 != NULL && strcmp(vol->fs_type, "rfs") != 0 ? "auto" : vol->fs_type);
+#endif
 }
 
 void create_fstab()

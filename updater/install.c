@@ -45,9 +45,11 @@
 #include "make_ext4fs.h"
 #endif
 
+#ifdef RECOVERY_MULTI_BOOT
 extern int multi_mount(
     const char* device, const char* mount_point, const char* fs_type, const char* fs_options);
 extern int multi_format(const char* location);
+#endif
 
 // mount(fs_type, partition_type, location, mount_point)
 //
@@ -87,35 +89,38 @@ Value* MountFn(const char* name, State* state, int argc, Expr* argv[]) {
 
     mkdir(mount_point, 0755);
 
+#ifdef RECOVERY_MULTI_BOOT
     if (multi_mount(location, mount_point, fs_type, NULL) == 0) {
         result = mount_point;
+        goto done;
+    }
+#endif
+
+    if (strcmp(partition_type, "MTD") == 0) {
+        mtd_scan_partitions();
+        const MtdPartition* mtd;
+        mtd = mtd_find_partition_by_name(location);
+        if (mtd == NULL) {
+            fprintf(stderr, "%s: no mtd partition named \"%s\"",
+                    name, location);
+            result = strdup("");
+            goto done;
+        }
+        if (mtd_mount_partition(mtd, mount_point, fs_type, 0 /* rw */) != 0) {
+            fprintf(stderr, "mtd mount of %s failed: %s\n",
+                    location, strerror(errno));
+            result = strdup("");
+            goto done;
+        }
+        result = mount_point;
     } else {
-        if (strcmp(partition_type, "MTD") == 0) {
-            mtd_scan_partitions();
-            const MtdPartition* mtd;
-            mtd = mtd_find_partition_by_name(location);
-            if (mtd == NULL) {
-                fprintf(stderr, "%s: no mtd partition named \"%s\"",
-                        name, location);
-                result = strdup("");
-                goto done;
-            }
-            if (mtd_mount_partition(mtd, mount_point, fs_type, 0 /* rw */) != 0) {
-                fprintf(stderr, "mtd mount of %s failed: %s\n",
-                        location, strerror(errno));
-                result = strdup("");
-                goto done;
-            }
-            result = mount_point;
+        if (mount(location, mount_point, fs_type,
+                  MS_NOATIME | MS_NODEV | MS_NODIRATIME, "") < 0) {
+            fprintf(stderr, "%s: failed to mount %s at %s: %s\n",
+                    name, location, mount_point, strerror(errno));
+            result = strdup("");
         } else {
-            if (mount(location, mount_point, fs_type,
-                      MS_NOATIME | MS_NODEV | MS_NODIRATIME, "") < 0) {
-                fprintf(stderr, "%s: failed to mount %s at %s: %s\n",
-                        name, location, mount_point, strerror(errno));
-                result = strdup("");
-            } else {
-                result = mount_point;
-            }
+            result = mount_point;
         }
     }
 
@@ -196,21 +201,15 @@ done:
 //    if fs_size < 0, then reserve that many bytes at the end of the partition
 Value* FormatFn(const char* name, State* state, int argc, Expr* argv[]) {
     char* result = NULL;
+    if (argc != 4) {
+        return ErrorAbort(state, "%s() expects 4 args, got %d", name, argc);
+    }
     char* fs_type;
     char* partition_type;
     char* location;
     char* fs_size;
-    if (argc == 4) {
-        if (ReadArgs(state, argv, 4, &fs_type, &partition_type, &location, &fs_size) < 0) {
-            return NULL;
-        }
-    } else if (argc == 3) {
-        if (ReadArgs(state, argv, 3, &fs_type, &partition_type, &location) < 0) {
-            return NULL;
-        }
-        fs_size = "0";
-    } else {
-        return ErrorAbort(state, "%s() expects 3 or 4 args, got %d", name, argc);
+    if (ReadArgs(state, argv, 4, &fs_type, &partition_type, &location, &fs_size) < 0) {
+        return NULL;
     }
 
     if (strlen(fs_type) == 0) {
@@ -227,68 +226,72 @@ Value* FormatFn(const char* name, State* state, int argc, Expr* argv[]) {
         goto done;
     }
 
+#ifdef RECOVERY_MULTI_BOOT
     if (multi_format(location) == 0) {
         result = location;
-    } else {
-        if (strcmp(partition_type, "MTD") == 0) {
-            mtd_scan_partitions();
-            const MtdPartition* mtd = mtd_find_partition_by_name(location);
-            if (mtd == NULL) {
-                fprintf(stderr, "%s: no mtd partition named \"%s\"", name, location);
-                result = strdup("");
-                goto done;
-            }
-            MtdWriteContext* ctx = mtd_write_partition(mtd);
-            if (ctx == NULL) {
-                fprintf(stderr, "%s: can't write \"%s\"", name, location);
-                result = strdup("");
-                goto done;
-            }
-            if (mtd_erase_blocks(ctx, -1) == -1) {
-                mtd_write_close(ctx);
-                fprintf(stderr, "%s: failed to erase \"%s\"", name, location);
-                result = strdup("");
-                goto done;
-            }
-            if (mtd_write_close(ctx) != 0) {
-                fprintf(stderr, "%s: failed to close \"%s\"", name, location);
-                result = strdup("");
-                goto done;
-            }
-            result = location;
-#ifdef USE_EXT4
-        } else if (strcmp(fs_type, "ext4") == 0) {
-            int status = make_ext4fs(location, atoll(fs_size));
-            if (status != 0) {
-                fprintf(stderr, "%s: make_ext4fs failed (%d) on %s",
-                        name, status, location);
-                result = strdup("");
-                goto done;
-            }
-            result = location;
+        goto done;
+    }
 #endif
-        } else if (strcmp(fs_type, "ext2") == 0) {
-            int status = format_ext2_device(location);
-            if (status != 0) {
-                fprintf(stderr, "%s: format_ext2_device failed (%d) on %s",
-                        name, status, location);
-                result = strdup("");
-                goto done;
-            }
-            result = location;
-        } else if (strcmp(fs_type, "ext3") == 0) {
-            int status = format_ext3_device(location);
-            if (status != 0) {
-                fprintf(stderr, "%s: format_ext3_device failed (%d) on %s",
-                        name, status, location);
-                result = strdup("");
-                goto done;
-            }
-            result = location;
-        } else {
-            fprintf(stderr, "%s: unsupported fs_type \"%s\" partition_type \"%s\"",
-                    name, fs_type, partition_type);
+
+    if (strcmp(partition_type, "MTD") == 0) {
+        mtd_scan_partitions();
+        const MtdPartition* mtd = mtd_find_partition_by_name(location);
+        if (mtd == NULL) {
+            fprintf(stderr, "%s: no mtd partition named \"%s\"",
+                    name, location);
+            result = strdup("");
+            goto done;
         }
+        MtdWriteContext* ctx = mtd_write_partition(mtd);
+        if (ctx == NULL) {
+            fprintf(stderr, "%s: can't write \"%s\"", name, location);
+            result = strdup("");
+            goto done;
+        }
+        if (mtd_erase_blocks(ctx, -1) == -1) {
+            mtd_write_close(ctx);
+            fprintf(stderr, "%s: failed to erase \"%s\"", name, location);
+            result = strdup("");
+            goto done;
+        }
+        if (mtd_write_close(ctx) != 0) {
+            fprintf(stderr, "%s: failed to close \"%s\"", name, location);
+            result = strdup("");
+            goto done;
+        }
+        result = location;
+#ifdef USE_EXT4
+    } else if (strcmp(fs_type, "ext4") == 0) {
+        int status = make_ext4fs(location, atoll(fs_size));
+        if (status != 0) {
+            fprintf(stderr, "%s: make_ext4fs failed (%d) on %s",
+                    name, status, location);
+            result = strdup("");
+            goto done;
+        }
+        result = location;
+#endif
+    } else if (strcmp(fs_type, "ext2") == 0) {
+        int status = format_ext2_device(location);
+        if (status != 0) {
+            fprintf(stderr, "%s: format_ext2_device failed (%d) on %s",
+                    name, status, location);
+            result = strdup("");
+            goto done;
+        }
+        result = location;
+    } else if (strcmp(fs_type, "ext3") == 0) {
+        int status = format_ext3_device(location);
+        if (status != 0) {
+            fprintf(stderr, "%s: format_ext3_device failed (%d) on %s",
+                    name, status, location);
+            result = strdup("");
+            goto done;
+        }
+        result = location;
+    } else {
+        fprintf(stderr, "%s: unsupported fs_type \"%s\" partition_type \"%s\"",
+                name, fs_type, partition_type);
     }
 
 done:
@@ -847,7 +850,7 @@ Value* WriteRawImageFn(const char* name, State* state, int argc, Expr* argv[]) {
             result = strdup(partition);
             goto done;
         } else {
-            fprintf(stderr, "*** !!! write_raw_image kernel flash !!!\n");
+            fprintf(stderr, "*** write_raw_image kernel flash\n");
         }
     }
 
@@ -1029,7 +1032,7 @@ Value* RunProgramFn(const char* name, State* state, int argc, Expr* argv[]) {
     char* value = getenv("KERNEL_FLASH");
     if (value != NULL && value[0] == '0') {
         int i;
-        fprintf(stderr, "*** !!! ignore kernel flash !!!\n");
+        fprintf(stderr, "*** ignore kernel flash\n");
         for (i = 0; i < argc; i++) {
             if (strstr(argv[i], "mmcblk0p5")) {
                 for (i = 0; i < argc; ++i) {
@@ -1041,7 +1044,7 @@ Value* RunProgramFn(const char* name, State* state, int argc, Expr* argv[]) {
             }
         }
     } else {
-        fprintf(stderr, "*** !!! kernel flash !!!\n");
+        fprintf(stderr, "*** kernel flash\n");
     }
 
     char** args2 = malloc(sizeof(char*) * (argc+1));

@@ -214,20 +214,23 @@ int try_mount(const char* device, const char* mount_point, const char* fs_type, 
     if (device == NULL || mount_point == NULL || fs_type == NULL)
         return -1;
     int ret = 0;
-    if (multi_mount(device, mount_point, fs_type, fs_options) != 0) {
-        if (fs_options == NULL) {
-            ret = mount(device, mount_point, fs_type,
-                           MS_NOATIME | MS_NODEV | MS_NODIRATIME, "");
-        }
-        else {
-            char mount_cmd[PATH_MAX];
-            sprintf(mount_cmd, "mount -t %s -o %s %s %s", fs_type, fs_options, device, mount_point);
-            ret = __system(mount_cmd);
-        }
-        if (ret == 0)
-            return 0;
-        LOGW("failed to mount %s (%s)\n", device, strerror(errno));
+#ifdef RECOVERY_MULTI_BOOT
+    ret = multi_mount(device, mount_point, fs_type, fs_options);
+    if (ret == 0)
+        return 0;
+#endif
+    if (fs_options == NULL) {
+        ret = mount(device, mount_point, fs_type,
+                       MS_NOATIME | MS_NODEV | MS_NODIRATIME, "");
     }
+    else {
+        char mount_cmd[PATH_MAX];
+        sprintf(mount_cmd, "mount -t %s -o%s %s %s", fs_type, fs_options, device, mount_point);
+        ret = __system(mount_cmd);
+    }
+    if (ret == 0)
+        return 0;
+    LOGW("failed to mount %s (%s)\n", device, strerror(errno));
     return ret;
 }
 
@@ -391,6 +394,11 @@ int format_volume(const char* volume) {
         LOGE("unknown volume \"%s\"\n", volume);
         return -1;
     }
+    // check to see if /data is being formatted, and if it is /data/media
+    // Note: the /sdcard check is redundant probably, just being safe.
+    if (strstr(volume, "/data") == volume && volume_for_path("/sdcard") == NULL && is_data_media()) {
+        return format_unknown_device(NULL, volume, NULL);
+    }
     if (strcmp(v->fs_type, "ramdisk") == 0) {
         // you can't format the ramdisk.
         LOGE("can't format_volume \"%s\"", volume);
@@ -433,7 +441,11 @@ int format_volume(const char* volume) {
     }
 
     if (strcmp(v->fs_type, "ext4") == 0) {
+#ifdef RECOVERY_MULTI_BOOT
         int result = make_ext4fs(v->device, 0);
+#else
+        int result = make_ext4fs(v->device, v->length);
+#endif
         if (result != 0) {
             LOGE("format_volume: make_extf4fs failed on %s\n", v->device);
             return -1;
