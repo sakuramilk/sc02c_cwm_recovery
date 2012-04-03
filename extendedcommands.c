@@ -399,10 +399,11 @@ void show_nandroid_restore_menu(const char* path, int restore_kernel)
         nandroid_restore(file, restore_kernel, 1, 1, 1, 1, 0);
 }
 
-#define BOARD_UMS_LUNFILE0		"/sys/devices/virtual/android_usb/android0/f_mass_storage/lun0/file"
-#define BOARD_UMS_LUNFILE1		"/sys/devices/virtual/android_usb/android0/f_mass_storage/lun1/file"
+#define BOARD_UMS_LUNFILE     "/sys/devices/virtual/android_usb/android0/f_mass_storage/lun/file"
+#define BOARD_UMS_LUNFILE0    "/sys/devices/virtual/android_usb/android0/f_mass_storage/lun0/file"
+#define BOARD_UMS_LUNFILE1    "/sys/devices/virtual/android_usb/android0/f_mass_storage/lun1/file"
 
-void show_mount_usb_storage_menu()
+static int show_mount_usb_storage_menu_int_ext()
 {
     int fd_int, fd_ext;
     Volume *vol_int = volume_for_path("/sdcard");
@@ -473,6 +474,64 @@ void show_mount_usb_storage_menu()
             close(fd_ext);
             return -1;
         }
+    }
+
+    return 0;
+}
+
+static int show_mount_usb_storage_menu_int()
+{
+    int fd;
+    Volume *vol = volume_for_path("/sdcard");
+    if ((fd = open(BOARD_UMS_LUNFILE, O_WRONLY)) < 0) {
+        LOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        return -1;
+    }
+
+    if ((write(fd, vol->device, strlen(vol->device)) < 0) &&
+        (!vol->device2 || (write(fd, vol->device, strlen(vol->device2)) < 0))) {
+        LOGE("Unable to write to ums lunfile (%s)", strerror(errno));
+        close(fd);
+        return -1;
+    }
+    static char* headers[] = {  "USB Mass Storage device",
+                                "Leaving this menu unmount",
+                                "your SD card from your PC.",
+                                "",
+                                NULL
+    };
+
+    static char* list[] = { "Unmount", NULL };
+
+    for (;;)
+    {
+        int chosen_item = get_menu_selection(headers, list, 0, 0);
+        if (chosen_item == GO_BACK || chosen_item == 0)
+            break;
+    }
+
+    if ((fd = open(BOARD_UMS_LUNFILE, O_WRONLY)) < 0) {
+        LOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        return -1;
+    }
+
+    char ch = 0;
+    if (write(fd, &ch, 1) < 0) {
+        LOGE("Unable to write to ums lunfile (%s)", strerror(errno));
+        close(fd);
+        return -1;
+    }
+
+    return 0;
+}
+
+void show_mount_usb_storage_menu()
+{
+    struct stat info;
+    if (0 == stat(BOARD_UMS_LUNFILE0, &info)) {
+        show_mount_usb_storage_menu_int_ext();
+    } else {
+        show_mount_usb_storage_menu_int();
     }
 }
 
