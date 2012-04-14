@@ -903,31 +903,42 @@ main(int argc, char **argv) {
     freopen(TEMPORARY_LOG_FILE, "a", stderr); setbuf(stderr, NULL);
     printf("Starting recovery on %s", ctime(&start));
 
-#ifdef RECOVERY_MULTI_BOOT
-    char romId[4] = { 0 };
-    FILE* fp = fopen("/mbs/stat/bootrom", "rb");
-    fread(&romId, 1, 4, fp);
-    fclose(fp);
-    sprintf(TARGET_ROM, "TARGET ROM%s", romId);
-
-    static char sysDevice[PATH_MAX] = { 0 };
-    fp = fopen("/mbs/stat/system_device", "rb");
-    fseek(fp, 0, SEEK_END);
-    size_t length = ftell(fp);
-    if (length > 0) {
-        fseek(fp, 0L, SEEK_SET);
-        fread(sysDevice, 1, length, fp);
-        fclose(fp);
-        setenv("SYSTEM_DEVICE", sysDevice, 1);
-    } else {
-        ui_print("fatal err: not found system devce path\n");
-        is_boot_error = 1;
-    }
-#endif
     usleep(1000 * 1000); // wait 1sec
     device_ui_init(&ui_parameters);
     ui_init();
     ui_print(EXPAND(RECOVERY_VERSION)"\n");
+
+#ifdef RECOVERY_MULTI_BOOT
+    char romId[4] = { 0 };
+    FILE* fp = fopen("/mbs/stat/bootrom", "rb");
+    if (fp) {
+        fread(&romId, 1, 4, fp);
+        fclose(fp);
+        sprintf(TARGET_ROM, "TARGET ROM%s", romId);
+    } else {
+        ui_print("error: not found /mbs/stat/bootrom\n");
+        is_boot_error = 1;
+    }
+
+    static char sysDevice[PATH_MAX] = { 0 };
+    fp = fopen("/mbs/stat/system_device", "rb");
+    if (fp) {
+        fseek(fp, 0, SEEK_END);
+        size_t length = ftell(fp);
+        if (length > 0) {
+            fseek(fp, 0L, SEEK_SET);
+            fread(sysDevice, 1, length, fp);
+            fclose(fp);
+            setenv("SYSTEM_DEVICE", sysDevice, 1);
+        } else {
+            ui_print("fatal err: not found system devce path\n");
+            is_boot_error = 1;
+        }
+    } else {
+        ui_print("error: not found /mbs/stat/system_device\n");
+        is_boot_error = 1;
+    }
+#endif
 
 #ifdef RECOVERY_MULTI_BOOT
     {
