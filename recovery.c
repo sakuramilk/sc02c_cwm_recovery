@@ -43,6 +43,7 @@
 
 #include "extendedcommands.h"
 #include "flashutils/flashutils.h"
+#include "dedupe/dedupe.h"
 
 static const struct option OPTIONS[] = {
   { "send_intent", required_argument, NULL, 's' },
@@ -59,7 +60,7 @@ static const char *LOG_FILE = "/cache/recovery/log";
 static const char *LAST_LOG_FILE = "/cache/recovery/last_log";
 static const char *CACHE_ROOT = "/cache";
 static const char *SDCARD_ROOT = "/sdcard";
-static int allow_display_toggle = 1;
+static int allow_display_toggle = 0;
 static int poweroff = 0;
 static const char *SDCARD_PACKAGE_FILE = "/sdcard/update.zip";
 static const char *TEMPORARY_LOG_FILE = "/tmp/recovery.log";
@@ -437,7 +438,7 @@ get_menu_selection(char** headers, char** items, int menu_only,
     // throw away keys pressed previously, so user doesn't
     // accidentally trigger menu items.
     ui_clear_key_queue();
-
+    
     int item_count = ui_start_menu(headers, items, initial_selection);
     int selected = initial_selection;
     int chosen_item = -1;
@@ -463,9 +464,10 @@ get_menu_selection(char** headers, char** items, int menu_only,
             }
         }
 
-        int action = device_handle_key(key, visible);
+        int action = ui_handle_key(key, visible);
 
         int old_selected = selected;
+        selected = ui_get_selected_item();
 
         if (action < 0) {
             switch (action) {
@@ -479,7 +481,7 @@ get_menu_selection(char** headers, char** items, int menu_only,
                     break;
                 case SELECT_ITEM:
                     chosen_item = selected;
-                    if (ui_get_showing_back_button()) {
+                    if (ui_is_showing_back_button()) {
                         if (chosen_item == item_count) {
                             chosen_item = GO_BACK;
                         }
@@ -488,14 +490,33 @@ get_menu_selection(char** headers, char** items, int menu_only,
                 case NO_ACTION:
                     break;
                 case GO_BACK:
-                    if (ui_get_showing_back_button()) {
-                        chosen_item = GO_BACK;
-                    }
+                    chosen_item = GO_BACK;
                     break;
             }
         } else if (!menu_only) {
             chosen_item = action;
         }
+
+#if 0
+#ifndef BOARD_HAS_NO_SELECT_BUTTON
+#ifndef BOARD_TOUCH_RECOVERY
+        if (abs(selected - old_selected) > 1) {
+            wrap_count++;
+            if (wrap_count == 3) {
+                wrap_count = 0;
+                if (ui_get_showing_back_button()) {
+                    ui_print("Back menu button disabled.\n");
+                    ui_set_showing_back_button(0);
+                }
+                else {
+                    ui_print("Back menu button enabled.\n");
+                    ui_set_showing_back_button(1);
+                }
+            }
+        }
+#endif
+#endif
+#endif
     }
 
     ui_end_menu();
@@ -728,6 +749,8 @@ select_boot_rom(int confirm) {
 }
 #endif // RECOVERY_MULTI_BOOT
 
+int ui_menu_level = 1;
+int ui_root_menu = 0;
 static void
 prompt_and_wait() {
     char** headers = prepend_title((const char**)MENU_HEADERS);
@@ -735,11 +758,16 @@ prompt_and_wait() {
     for (;;) {
         finish_recovery(NULL);
         ui_reset_progress();
-
-        allow_display_toggle = 1;
+        
+        ui_root_menu = 1;
+        // ui_menu_level is a legacy variable that i am keeping around to prevent build breakage.
+        ui_menu_level = 0;
+        // allow_display_toggle = 1;
         ui_set_showing_back_button(0);
         int chosen_item = get_menu_selection(headers, MENU_ITEMS, 0, 0);
-        allow_display_toggle = 0;
+        ui_menu_level = 1;
+        ui_root_menu = 0;
+        // allow_display_toggle = 0;
         ui_set_showing_back_button(1);
 
         // device-specific code may take some action here.  It may
@@ -820,6 +848,8 @@ int
 main(int argc, char **argv) {
     if (strcmp(basename(argv[0]), "recovery") != 0)
     {
+        if (strstr(argv[0], "dedupe") != NULL)
+            return dedupe_main(argc, argv);
         if (strstr(argv[0], "flash_image") != NULL)
             return flash_image_main(argc, argv);
         if (strstr(argv[0], "volume") != NULL)
@@ -882,11 +912,11 @@ main(int argc, char **argv) {
             }
         }
 #endif
-        if (strstr(argv[0], "poweroff"))
+        if (strstr(argv[0], "poweroff")){
             return reboot_main(argc, argv);
+        }
         if (strstr(argv[0], "setprop"))
             return setprop_main(argc, argv);
-
         return busybox_driver(argc, argv);
     }
     __system("/sbin/postrecoveryboot.sh");
@@ -897,6 +927,10 @@ main(int argc, char **argv) {
 #else
     time_t start = time(NULL);
 #endif
+
+    // Recovery needs to install world-readable files, so clear umask
+    // set by init
+    umask(0);
 
     // If these fail, there's not really anywhere to complain...
     freopen(TEMPORARY_LOG_FILE, "a", stdout); setbuf(stdout, NULL);
@@ -938,9 +972,7 @@ main(int argc, char **argv) {
         ui_print("error: not found /mbs/stat/system_device\n");
         is_boot_error = 1;
     }
-#endif
 
-#ifdef RECOVERY_MULTI_BOOT
     {
         char msg[100] = { 0 };
         FILE* fp = fopen("/mbs/stat/mbs.err", "rb");
@@ -975,9 +1007,9 @@ main(int argc, char **argv) {
         case 'u': update_package = optarg; break;
         case 'w': 
 #ifndef BOARD_RECOVERY_ALWAYS_WIPES
-		wipe_data = wipe_cache = 1;
+        wipe_data = wipe_cache = 1;
 #endif
-		break;
+        break;
         case 'c': wipe_cache = 1; break;
         case 't': ui_show_text(1); break;
         case '?':
@@ -1070,6 +1102,8 @@ main(int argc, char **argv) {
     if (status != INSTALL_SUCCESS || ui_text_visible()) {
         prompt_and_wait();
     }
+
+    verify_root_and_recovery();
 
 #if 0 // galaxys2 don't support this feature
     // If there is a radio image pending, reboot now to install it.

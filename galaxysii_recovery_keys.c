@@ -19,7 +19,9 @@ int device_handle_key(int key_code, int visible) {
             case KEY_HOME:
                 return SELECT_ITEM;
             case KEY_BACK:
-                return GO_BACK;
+                if (!ui_root_menu) {
+                    return GO_BACK;
+                }
             case KEY_POWER:
                 break;
         }

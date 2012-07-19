@@ -235,14 +235,31 @@ int try_mount(const char* device, const char* mount_point, const char* fs_type, 
 }
 
 int is_data_media() {
-    Volume *data = volume_for_path("/data");
-    return data != NULL && (strcmp(data->fs_type, "auto") == 0 || volume_for_path("/sdcard") == NULL);
+    int i;
+    for (i = 0; i < num_volumes; i++) {
+        Volume* vol = device_volumes + i;
+        if (strcmp(vol->fs_type, "datamedia") == 0)
+            return 1;
+    }
+    return 0;
 }
 
 void setup_data_media() {
-    rmdir("/sdcard");
-    mkdir("/data/media", 0755);
-    symlink("/data/media", "/sdcard");
+    int i;
+    for (i = 0; i < num_volumes; i++) {
+        Volume* vol = device_volumes + i;
+        if (strcmp(vol->fs_type, "datamedia") == 0) {
+            rmdir(vol->mount_point);
+            mkdir("/data/media", 0755);
+            symlink("/data/media", vol->mount_point);
+            return;
+        }
+    }
+}
+
+int is_data_media_volume_path(const char* path) {
+    Volume* v = volume_for_path(path);
+    return strcmp(v->fs_type, "datamedia") == 0;
 }
 
 int ensure_path_mounted(const char* path) {
@@ -258,17 +275,16 @@ int ensure_path_mounted_at_mount_point(const char* path, const char* mount_point
             return 0;
         }
 #endif
-        // no /sdcard? let's assume /data/media
-        if (strstr(path, "/sdcard") == path && is_data_media()) {
-            LOGI("using /data/media, no /sdcard found.\n");
-            int ret;
-            if (0 != (ret = ensure_path_mounted("/data")))
-                return ret;
-            setup_data_media();
-            return 0;
-        }
         LOGE("unknown volume for path [%s]\n", path);
         return -1;
+    }
+    if (is_data_media_volume_path(path)) {
+        LOGI("using /data/media for %s.\n", path);
+        int ret;
+        if (0 != (ret = ensure_path_mounted("/data")))
+            return ret;
+        setup_data_media();
+        return 0;
     }
     if (strcmp(v->fs_type, "ramdisk") == 0) {
         // the ramdisk is always mounted.
@@ -321,8 +337,12 @@ int ensure_path_mounted_at_mount_point(const char* path, const char* mount_point
     } else {
         // let's try mounting with the mount binary and hope for the best.
         char mount_cmd[PATH_MAX];
-        sprintf(mount_cmd, "mount %s", path);
-        return __system(mount_cmd);
+        sprintf(mount_cmd, "mount %s", mount_point);
+        int ret = __system(mount_cmd);
+        if (ret) {
+            LOGE("__system(%s) ret=%d\n", mount_cmd, ret);
+        }
+        return ret;
     }
 
     LOGE("unknown fs_type \"%s\" for %s\n", v->fs_type, mount_point);
@@ -331,7 +351,7 @@ int ensure_path_mounted_at_mount_point(const char* path, const char* mount_point
 
 int ensure_path_unmounted(const char* path) {
     // if we are using /data/media, do not ever unmount volumes /data or /sdcard
-    if (volume_for_path("/sdcard") == NULL && (strstr(path, "/sdcard") == path || strstr(path, "/data") == path)) {
+    if (strstr(path, "/data") == path && is_data_media()) {
         return 0;
     }
 
@@ -343,12 +363,11 @@ int ensure_path_unmounted(const char* path) {
             return 0;
         }
 #endif
-        // no /sdcard? let's assume /data/media
-        if (strstr(path, "/sdcard") == path && is_data_media()) {
-            return ensure_path_unmounted("/data");
-        }
         LOGE("unknown volume for path [%s]\n", path);
         return -1;
+    }
+    if (is_data_media_volume_path(path)) {
+        return ensure_path_unmounted("/data");
     }
     if (strcmp(v->fs_type, "ramdisk") == 0) {
         // the ramdisk is always mounted; you can't unmount it.
@@ -382,21 +401,18 @@ int format_volume(const char* volume) {
             return 0;
         }
 #endif
-        // no /sdcard? let's assume /data/media
-        if (strstr(volume, "/sdcard") == volume && is_data_media()) {
-            return format_unknown_device(NULL, volume, NULL);
-        }
-#ifdef RECOVERY_HAVE_SD_EXT
         // silent failure for sd-ext
         if (strcmp(volume, "/sd-ext") == 0)
             return -1;
-#endif
         LOGE("unknown volume \"%s\"\n", volume);
         return -1;
     }
+    if (is_data_media_volume_path(volume)) {
+        return format_unknown_device(NULL, volume, NULL);
+    }
     // check to see if /data is being formatted, and if it is /data/media
     // Note: the /sdcard check is redundant probably, just being safe.
-    if (strstr(volume, "/data") == volume && volume_for_path("/sdcard") == NULL && is_data_media()) {
+    if (strstr(volume, "/data") == volume && is_data_media()) {
         return format_unknown_device(NULL, volume, NULL);
     }
     if (strcmp(v->fs_type, "ramdisk") == 0) {

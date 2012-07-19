@@ -845,7 +845,7 @@ Value* WriteRawImageFn(const char* name, State* state, int argc, Expr* argv[]) {
     }
     {
         char* value = getenv("KERNEL_FLASH");
-        if (value != NULL && value[0] == '0' && strstr(partition, "mmcblk0p5")) {
+        if (value != NULL && value[0] == '0' && strstr(partition, MMCBLK_BOOT)) {
             fprintf(stderr, "write_raw_image: skip flash kernel");
             result = strdup(partition);
             goto done;
@@ -1034,7 +1034,7 @@ Value* RunProgramFn(const char* name, State* state, int argc, Expr* argv[]) {
         int i;
         fprintf(stderr, "*** ignore kernel flash\n");
         for (i = 0; i < argc; i++) {
-            if (strstr(argv[i], "mmcblk0p5")) {
+            if (strstr(argv[i], MMCBLK_BOOT)) {
                 for (i = 0; i < argc; ++i) {
                     free(args[i]);
                 }

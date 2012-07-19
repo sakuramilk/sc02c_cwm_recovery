@@ -17,6 +17,11 @@
 #ifndef MTDUTILS_MOUNTS_H_
 #define MTDUTILS_MOUNTS_H_
 
+#define MMCBLK_BOOT     "mmcblk0p5"
+#define MMCBLK_SYSTEM   "mmcblk0p9"
+#define MMCBLK_DATA     "mmcblk0p10"
+
+
 typedef struct {
  const char *device;
  const char *mount_point;

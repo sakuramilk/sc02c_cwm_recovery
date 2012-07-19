@@ -66,12 +66,6 @@ toggle_signature_check()
     ui_print("Signature Check: %s\n", signature_check_enabled ? "Enabled" : "Disabled");
 }
 
-void toggle_script_asserts()
-{
-    script_assert_enabled = !script_assert_enabled;
-    ui_print("Script Asserts: %s\n", script_assert_enabled ? "Enabled" : "Disabled");
-}
-
 void toggle_kernel_flash()
 {
     script_kernel_flash = !script_kernel_flash;
@@ -83,7 +77,6 @@ void toggle_updater_binary()
     script_updater_binary = !script_updater_binary;
     ui_print("Updater Binary %s\n", script_updater_binary ? "Internal" : "External");
 }
-
 
 int install_zip(const char* packagefilepath)
 {
@@ -107,17 +100,15 @@ char* INSTALL_MENU_ITEMS[] = {  "choose zip from internal sdcard",
                                 "choose zip from external sdcard",
                                 "apply /sdcard/update.zip",
                                 "toggle signature verification",
-                                "toggle script asserts",
                                 "toggle kernel flash",
                                 "toggle updater binary",
                                 NULL };
-#define ITEM_CHOOSE_ZIP       0
-#define ITEM_CHOOSE_ZIP_INT   1
-#define ITEM_APPLY_SDCARD     2
-#define ITEM_SIG_CHECK        3
-#define ITEM_ASSERTS          4
-#define ITEM_KERNEL_FLASH     5
-#define ITEM_UPDATER_BINARY   6
+#define ITEM_CHOOSE_ZIP_INT   (0)
+#define ITEM_CHOOSE_ZIP_EXT   (1)
+#define ITEM_APPLY_SDCARD     (2)
+#define ITEM_SIG_CHECK        (3)
+#define ITEM_KERNEL_FLASH     (4)
+#define ITEM_UPDATER_BINARY   (5)
 
 void show_install_update_menu()
 {
@@ -137,9 +128,6 @@ void show_install_update_menu()
         int chosen_item = get_menu_selection(headers, INSTALL_MENU_ITEMS, 0, 0);
         switch (chosen_item)
         {
-            case ITEM_ASSERTS:
-                toggle_script_asserts();
-                break;
             case ITEM_SIG_CHECK:
                 toggle_signature_check();
                 break;
@@ -155,10 +143,10 @@ void show_install_update_menu()
             case ITEM_UPDATER_BINARY:
                 toggle_updater_binary();
                 break;
-            case ITEM_CHOOSE_ZIP:
+            case ITEM_CHOOSE_ZIP_INT:
                 show_choose_zip_menu("/sdcard/");
                 break;
-            case ITEM_CHOOSE_ZIP_INT:
+            case ITEM_CHOOSE_ZIP_EXT:
                 show_choose_zip_menu("/emmc/");
                 break;
             default:
@@ -295,6 +283,20 @@ char* choose_file_menu(const char* directory, const char* fileExtensionOrDirecto
     char* return_value = NULL;
     int dir_len = strlen(directory);
 
+    i = 0;
+    while (headers[i]) {
+        i++;
+    }
+    const char** fixed_headers = (const char*)malloc((i + 3) * sizeof(char*));
+    i = 0;
+    while (headers[i]) {
+        fixed_headers[i] = headers[i];
+        i++;
+    }
+    fixed_headers[i] = directory;
+    fixed_headers[i + 1] = "";
+    fixed_headers[i + 2 ] = NULL;
+
     char** files = gather_files(directory, fileExtensionOrDirectory, &numFiles);
     char** dirs = NULL;
     if (fileExtensionOrDirectory != NULL)
@@ -322,7 +324,7 @@ char* choose_file_menu(const char* directory, const char* fileExtensionOrDirecto
 
         for (;;)
         {
-            int chosen_item = get_menu_selection(headers, list, 0, 0);
+            int chosen_item = get_menu_selection(fixed_headers, list, 0, 0);
             if (chosen_item == GO_BACK)
                 break;
             static char ret[PATH_MAX];
@@ -346,6 +348,7 @@ char* choose_file_menu(const char* directory, const char* fileExtensionOrDirecto
 
     free_string_array(files);
     free_string_array(dirs);
+    free(fixed_headers);
     return return_value;
 }
 
@@ -578,10 +581,6 @@ int confirm_selection(const char* title, const char* confirm)
 int format_device(const char *device, const char *path, const char *fs_type) {
     Volume* v = volume_for_path(path);
     if (v == NULL) {
-        // no /sdcard? let's assume /data/media
-        if (strstr(path, "/sdcard") == path && is_data_media()) {
-            return format_unknown_device(NULL, path, NULL);
-        }
 #ifdef RECOVERY_MULTI_BOOT
         if (strcmp(path, "/data") == 0) {
             __system("rm -rf /data/*");
@@ -595,7 +594,10 @@ int format_device(const char *device, const char *path, const char *fs_type) {
         LOGE("unknown volume \"%s\"\n", path);
         return -1;
     }
-    if (strstr(path, "/data") == path && volume_for_path("/sdcard") == NULL && is_data_media()) {
+    if (is_data_media_volume_path(path)) {
+        return format_unknown_device(NULL, path, NULL);
+    }
+    if (strstr(path, "/data") == path && is_data_media()) {
         return format_unknown_device(NULL, path, NULL);
     }
     if (strcmp(fs_type, "ramdisk") == 0) {
@@ -796,7 +798,7 @@ void show_partition_menu()
     string options[255];
 
     if(!device_volumes)
-		return;
+		    return;
 
 		mountable_volumes = 0;
 		formatable_volumes = 0;
@@ -1011,8 +1013,8 @@ void show_nandroid_menu()
                             NULL
     };
 
-    if (volume_for_path("/emmc") == NULL || volume_for_path("/sdcard") == NULL && is_data_media())
-        list[3] = NULL;
+    if (volume_for_path("/emmc") == NULL)
+        list[4] = NULL;
 
     int chosen_item = get_menu_selection(headers, list, 0, 0);
     switch (chosen_item)
@@ -1107,10 +1109,10 @@ void show_advanced_menu()
                             "Report Error",
                             "Key Test",
                             "Show log",
-                            "Internal Partition SD Card",
+                            "Partition Internal SD Card",
                             "Fix Permissions",
 #ifdef BOARD_HAS_SDCARD_INTERNAL
-                            "External Partition SD Card",
+                            "Partition External SD Card",
 #endif
                             NULL
     };
@@ -1413,7 +1415,7 @@ void handle_failure(int ret)
         return;
     if (0 != ensure_path_mounted("/sdcard"))
         return;
-    mkdir("/sdcard/clockworkmod", S_IRWXU);
+    mkdir("/sdcard/clockworkmod", S_IRWXU | S_IRWXG | S_IRWXO);
     __system("cp /tmp/recovery.log /sdcard/clockworkmod/recovery.log");
     ui_print("/tmp/recovery.log was copied to /sdcard/clockworkmod/recovery.log. Please open ROM Manager to report the issue.\n");
 }
@@ -1452,4 +1454,48 @@ int has_datadata() {
 int volume_main(int argc, char **argv) {
     load_volume_table();
     return 0;
+}
+
+int verify_root_and_recovery() {
+    if (ensure_path_mounted("/system") != 0)
+        return 0;
+
+    int ret = 0;
+    struct stat st;
+    if (0 == lstat("/system/etc/install-recovery.sh", &st)) {
+        if (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) {
+            ui_show_text(1);
+            ret = 1;
+            if (confirm_selection("ROM may flash stock recovery on boot. Fix?", "Yes - Disable recovery flash")) {
+                __system("chmod -x /system/etc/install-recovery.sh");
+            }
+        }
+    }
+
+    if (0 == lstat("/system/bin/su", &st)) {
+        if (S_ISREG(st.st_mode)) {
+            if ((st.st_mode & (S_ISUID | S_ISGID)) != (S_ISUID | S_ISGID)) {
+                ui_show_text(1);
+                ret = 1;
+                if (confirm_selection("Root access possibly lost. Fix?", "Yes - Fix root (/system/bin/su)")) {
+                    __system("chmod 6755 /system/bin/su");
+                }
+            }
+        }
+    }
+
+    if (0 == lstat("/system/xbin/su", &st)) {
+        if (S_ISREG(st.st_mode)) {
+            if ((st.st_mode & (S_ISUID | S_ISGID)) != (S_ISUID | S_ISGID)) {
+                ui_show_text(1);
+                ret = 1;
+                if (confirm_selection("Root access possibly lost. Fix?", "Yes - Fix root (/system/xbin/su)")) {
+                    __system("chmod 6755 /system/xbin/su");
+                }
+            }
+        }
+    }
+
+    ensure_path_unmounted("/system");
+    return ret;
 }
